@@ -146,7 +146,12 @@ function shell(content,tab=currentTab){
         <div class="brand mobile-brand"><img src="/logo-mark.svg" alt="" class="brand-logo"><div class="brand-copy"><strong>Orchard Collection</strong><span>Professional</span></div></div>
         <div class="topbar-actions"><button id="top-command" class="secondary compact">⌘ Search</button><button id="signout" class="secondary compact">Sign out</button></div>
       </header>
-      <main class="content content-with-nav professional-content">${content}</main>
+      <header class="mobile-appbar">
+        <img src="/logo-mark.svg" alt="" class="mobile-appbar-logo">
+        <div><small>Orchard Collection</small><strong>${esc(navItems.find(item=>item[0]===tab)?.[2]||"Collection")}</strong></div>
+        <button id="mobile-search" class="mobile-appbar-action" aria-label="Search Orchard Collection">⌕</button>
+      </header>
+      <main class="content content-with-nav professional-content page-enter">${content}</main>
     </div>
     <nav class="bottom-nav professional-bottom-nav" aria-label="Primary navigation">
       <button data-tab="dashboard" class="${tab==="dashboard"?"active":""}"><span>⌂</span><b>Home</b></button>
@@ -164,6 +169,7 @@ function bindShell(){
   document.querySelector("#quick-add")?.addEventListener("click",openQuickAdd);
   document.querySelector("#command-button")?.addEventListener("click",openCommandPalette);
   document.querySelector("#top-command")?.addEventListener("click",openCommandPalette);
+  document.querySelector("#mobile-search")?.addEventListener("click",openCommandPalette);
   document.querySelector("#theme-toggle")?.addEventListener("click",toggleTheme);
   document.querySelector("#mobile-menu")?.addEventListener("click",()=>document.querySelector(".sidebar")?.classList.toggle("open"));
 }
