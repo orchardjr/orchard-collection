@@ -1,4 +1,4 @@
-const CACHE='orchard-production-v4-0-5-clean-icon';
+const CACHE='orchard-production-v4-0-6-photo-library';
 const ASSETS=['/','/index.html','/styles.css','/app.js','/config.js','/brand.css','/manifest.webmanifest','/apple-touch-icon.png','/icon-192.png','/icon-512.png','/logo-mark.svg','/src/services/production.js'];
 self.addEventListener('install',event=>{self.skipWaiting();event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)))});
 self.addEventListener('activate',event=>event.waitUntil(Promise.all([self.clients.claim(),caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k))))])));
