@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import QRCode from "https://esm.sh/qrcode@1.5.4";
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./config.js";
+import { ORCHARD_DOMAINS, plantPublicURL } from "./src/services/production.js";
 
 const supabase=createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{
   auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}
@@ -50,6 +51,51 @@ function stalePhotoPlants(){return plants.filter(p=>{const age=latestPhotoAge(p)
 function recentActivityFor(type,days=30){return activities.filter(a=>String(a.activity_type).toLowerCase()===type.toLowerCase()&&daysSince(a.occurred_at||a.created_at)<=days)}
 function greeting(){const h=new Date().getHours();return h<12?"Good morning":h<18?"Good afternoon":"Good evening"}
 function money(v){const n=Number(v);return Number.isFinite(n)?new Intl.NumberFormat(undefined,{style:"currency",currency:"CAD",maximumFractionDigits:0}).format(n):"—"}
+
+function isMarketingHost(){
+  return location.hostname==="orchardcollection.ca"||location.hostname==="www.orchardcollection.ca";
+}
+
+function renderMarketingSite(){
+  document.title="Orchard Collection — Professional plant collection management";
+  document.querySelector('meta[name="description"]')?.setAttribute("content","A professional collection manager for serious plant collectors, with care records, growth photography, QR and NFC links, and Brother label printing.");
+  document.body.classList.add("marketing-body");
+  app.innerHTML=`
+    <div class="marketing-site">
+      <header class="marketing-nav">
+        <a class="marketing-brand" href="/" aria-label="Orchard Collection home"><img src="/logo-mark.svg" alt=""><span>Orchard Collection</span></a>
+        <nav><a href="#features">Features</a><a href="#collectors">Built for collectors</a><a class="marketing-login" href="${ORCHARD_DOMAINS.app}">Launch app</a></nav>
+      </header>
+      <main>
+        <section class="marketing-hero">
+          <div class="marketing-hero-copy">
+            <p class="marketing-kicker">Professional collection management</p>
+            <h1>Your plants deserve more than a spreadsheet.</h1>
+            <p class="marketing-lede">Document every specimen, care event, photograph, label and NFC tag in one private, collector-focused workspace.</p>
+            <div class="marketing-cta-row"><a class="marketing-primary" href="${ORCHARD_DOMAINS.app}">Launch Orchard Collection</a><a class="marketing-secondary" href="#features">Explore features</a></div>
+            <div class="marketing-trust"><span>Private by design</span><span>QR + NFC ready</span><span>Brother label workflows</span></div>
+          </div>
+          <div class="marketing-product" aria-label="Orchard Collection dashboard preview">
+            <div class="product-window-bar"><i></i><i></i><i></i><span>app.orchardcollection.ca</span></div>
+            <div class="product-preview-head"><div><small>Good afternoon</small><strong>Your collection</strong></div><b>OC</b></div>
+            <div class="product-stat-grid"><article><span>Plants</span><strong>128</strong></article><article><span>Care today</span><strong>6</strong></article><article><span>Favorites</span><strong>24</strong></article></div>
+            <div class="product-list"><div><i>🌿</i><span><strong>Monstera deliciosa ‘Albo’</strong><small>MON-0013 · Moss pole</small></span><em>Healthy</em></div><div><i>◉</i><span><strong>Hoya ETS-10 Splash</strong><small>HOY-0047 · Cabinet</small></span><em>Photo due</em></div><div><i>✦</i><span><strong>Optimara Little Ottawa</strong><small>AV-0018 · Wick watered</small></span><em>Water today</em></div></div>
+          </div>
+        </section>
+        <section id="features" class="marketing-section">
+          <div class="section-intro"><p class="marketing-kicker">Everything in its place</p><h2>Built around the way collectors actually work.</h2></div>
+          <div class="feature-grid">
+            <article><span>01</span><h3>Living plant records</h3><p>Keep accession numbers, provenance, substrate, location, value, notes and photographs together.</p></article>
+            <article><span>02</span><h3>Care history</h3><p>Log watering, fertilizer, repotting, blooms and new growth with a chronological visual timeline.</p></article>
+            <article><span>03</span><h3>Professional labels</h3><p>Design QR-ready botanical labels sized for Brother QL continuous rolls and batch printing.</p></article>
+            <article><span>04</span><h3>Permanent NFC links</h3><p>Encode stable plant URLs using app.orchardcollection.ca so tags remain useful for years.</p></article>
+          </div>
+        </section>
+        <section id="collectors" class="collector-banner"><div><p class="marketing-kicker">Collector-first</p><h2>From Hoyas and orchids to African violets, aroids and carnivorous plants.</h2></div><a class="marketing-primary" href="${ORCHARD_DOMAINS.app}">Open the app</a></section>
+      </main>
+      <footer class="marketing-footer"><div class="marketing-brand"><img src="/logo-mark.svg" alt=""><span>Orchard Collection</span></div><p>Designed in Niagara, Canada · © ${new Date().getFullYear()} Orchard Collection</p></footer>
+    </div>`;
+}
 
 function renderLogin(message=""){
   app.innerHTML=`<section class="auth-shell"><div class="auth-card">
@@ -646,7 +692,7 @@ function openPlant(accession){
 function renderPlantDetail(p){
   if(!p)return;
   const img=imageURL(p),events=plantActivities(p.accession),pics=plantPhotos(p.accession);
-  const nfc=`${location.origin}${location.pathname}?plant=${encodeURIComponent(p.accession)}`;
+  const nfc=plantPublicURL(p.accession);
   app.innerHTML=shell(`
     <a class="back-link" id="back-to-tab">← Back</a>
     <section class="detail-hero ${img?"has-photo":""}" ${img?`style="background-image:url('${esc(img)}')"`:""}>
@@ -789,4 +835,8 @@ async function renderAuthenticated(s){
 
 document.documentElement.dataset.theme=appTheme;
 
-supabase.auth.onAuthStateChange((_event,s)=>s?renderAuthenticated(s):renderLogin());
+if(isMarketingHost()){
+  renderMarketingSite();
+}else{
+  supabase.auth.onAuthStateChange((_event,s)=>s?renderAuthenticated(s):renderLogin());
+}

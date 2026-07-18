@@ -1,31 +1,22 @@
 {
-  "name": "Orchard Collection",
+  "id": "https://app.orchardcollection.ca/",
+  "name": "Orchard Collection Professional",
   "short_name": "Orchard",
-  "description": "A private botanical collection and care archive.",
-  "start_url": "/",
-  "scope": "/",
+  "description": "A private botanical collection, care archive, label studio and NFC-ready plant database.",
+  "start_url": "https://app.orchardcollection.ca/",
+  "scope": "https://app.orchardcollection.ca/",
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#0D2218",
   "theme_color": "#0D2218",
+  "categories": ["lifestyle", "productivity", "utilities"],
+  "shortcuts": [
+    {"name":"Open collection","short_name":"Collection","url":"https://app.orchardcollection.ca/#collection"},
+    {"name":"Label Center","short_name":"Labels","url":"https://app.orchardcollection.ca/#labels"}
+  ],
   "icons": [
-    {
-      "src": "/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/maskable-icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
-    }
+    {"src":"/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any"},
+    {"src":"/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any"},
+    {"src":"/maskable-icon-512.png","sizes":"512x512","type":"image/png","purpose":"maskable"}
   ]
 }
