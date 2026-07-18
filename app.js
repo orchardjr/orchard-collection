@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import QRCode from "https://esm.sh/qrcode@1.5.4";
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./config.js";
 
 const supabase=createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{
@@ -18,6 +19,8 @@ let currentPlant=null;
 let collectionView="cards";
 let currentTab="dashboard";
 let collectionQuery="";
+let labelBatch=[];
+let labelSettings={preset:"collection",lengthMm:90,showQR:true,showLogo:true,showLocation:true};
 
 const esc=(v="")=>String(v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
 const val=(o,keys,fallback="Not recorded")=>{for(const k of keys)if(o?.[k]!==null&&o?.[k]!==undefined&&o?.[k]!=="")return o[k];return fallback};
@@ -265,6 +268,31 @@ function openPhotoReminderQueue(){
   document.querySelectorAll("[data-pick-photo]").forEach(b=>b.onclick=()=>{closeModal();openPlant(b.dataset.pickPhoto);setTimeout(()=>photoPicker.click(),250)});
 }
 
+
+function plantDirectURL(p){return `${location.origin}${location.pathname}?plant=${encodeURIComponent(p.accession)}`}
+function labelSafeFilename(p,index=1){return `${String(p.accession||"plant").replace(/[^a-z0-9_-]/gi,"-")}-12mm-label-${index}.png`}
+function fitCanvasText(ctx,text,maxWidth){let value=String(text||"");while(ctx.measureText(value).width>maxWidth&&value.length>8)value=value.slice(0,-2)+"…";return value}
+async function createLabelCanvas(p,settings=labelSettings){
+ const dpi=180,width=Math.max(425,Math.round((Number(settings.lengthMm)||90)/25.4*dpi)),height=Math.round(12/25.4*dpi),scale=3;
+ const canvas=document.createElement("canvas");canvas.width=width*scale;canvas.height=height*scale;const ctx=canvas.getContext("2d");ctx.scale(scale,scale);ctx.fillStyle="#fff";ctx.fillRect(0,0,width,height);ctx.fillStyle="#111";ctx.textBaseline="middle";
+ const margin=8,qrSize=settings.showQR?height-10:0,qrX=width-margin-qrSize,textRight=settings.showQR?qrX-8:width-margin,textWidth=textRight-margin;
+ if(settings.showQR){const qr=await QRCode.toDataURL(plantDirectURL(p),{margin:0,width:qrSize*4,errorCorrectionLevel:"M"});const img=new Image();await new Promise((res,rej)=>{img.onload=res;img.onerror=rej;img.src=qr});ctx.drawImage(img,qrX,5,qrSize,qrSize)}
+ if(settings.preset==="compact"){ctx.font="bold 16px Arial";ctx.fillText(String(p.accession||""),margin,22);ctx.font="bold 19px Arial";ctx.fillText(fitCanvasText(ctx,p.name||"Plant",textWidth),margin,54)}
+ else if(settings.preset==="botanical"){ctx.font="bold 17px Arial";ctx.fillText(fitCanvasText(ctx,p.name||"Plant",textWidth),margin,23);ctx.font="bold 14px Arial";ctx.fillText(String(p.accession||""),margin,49);ctx.font="11px Arial";ctx.fillText(p.acquired_date?`Acquired ${fmtDate(p.acquired_date)}`:"Botanical collection",margin,70)}
+ else if(settings.preset==="propagation"){ctx.font="bold 11px Arial";ctx.fillText("PROPAGATION",margin,10);ctx.font="bold 17px Arial";ctx.fillText(fitCanvasText(ctx,p.name||"Plant",textWidth),margin,31);ctx.font="bold 14px Arial";ctx.fillText(String(p.accession||""),margin,52);ctx.font="11px Arial";ctx.fillText(`Printed ${new Date().toLocaleDateString()}`,margin,70)}
+ else {if(settings.showLogo){ctx.font="bold 9px Arial";ctx.fillText("ORCHARD COLLECTION",margin,8)}ctx.font="bold 17px Arial";ctx.fillText(fitCanvasText(ctx,p.name||"Plant",textWidth),margin,29);ctx.font="bold 14px Arial";ctx.fillText(String(p.accession||""),margin,50);if(settings.showLocation){ctx.font="11px Arial";ctx.fillText(fitCanvasText(ctx,val(p,["location","support"],""),textWidth),margin,69)}}
+ return canvas
+}
+function readLabelControls(){labelSettings={preset:document.querySelector("#label-preset")?.value||"collection",lengthMm:Number(document.querySelector("#label-length")?.value||90),showQR:document.querySelector("#label-show-qr")?.checked??true,showLogo:document.querySelector("#label-show-logo")?.checked??true,showLocation:document.querySelector("#label-show-location")?.checked??true}}
+async function refreshLabelPreview(p){const area=document.querySelector("#label-preview-area");if(!area)return;area.innerHTML='<div class="label-loading">Generating preview…</div>';const canvas=await createLabelCanvas(p,labelSettings);canvas.className="label-preview-canvas";area.innerHTML="";area.appendChild(canvas)}
+async function shareCanvas(canvas,filename){const blob=await new Promise(r=>canvas.toBlob(r,"image/png",1));const file=new File([blob],filename,{type:"image/png"});if(navigator.canShare?.({files:[file]})){await navigator.share({files:[file],title:"Orchard Collection label",text:"Open in Brother P-touch Design&Print 2 to print."})}else{const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);showToast("Label downloaded")}}
+function labelControlsHTML(){return `<div class="label-controls"><label>Label style<select id="label-preset"><option value="collection">Collection</option><option value="compact">Compact</option><option value="botanical">Botanical</option><option value="propagation">Propagation</option></select></label><label>Label length<select id="label-length"><option value="60">60 mm</option><option value="75">75 mm</option><option value="90" selected>90 mm</option><option value="110">110 mm</option></select></label><label class="toggle-row"><input id="label-show-qr" type="checkbox" checked><span>Include QR code</span></label><label class="toggle-row"><input id="label-show-logo" type="checkbox" checked><span>Include collection name</span></label><label class="toggle-row"><input id="label-show-location" type="checkbox" checked><span>Include location</span></label></div>`}
+function openPlantLabelDesigner(p){modalRoot.innerHTML=`<div class="modal-backdrop"><div class="modal label-designer-modal"><div class="modal-header"><div><p class="eyebrow">Brother PT-P300BT</p><h2>12 mm label designer</h2></div><button class="icon-button" id="close-modal">×</button></div><div class="label-designer-layout"><div><div id="label-preview-area" class="label-preview-area"></div><p class="label-help">Share the finished PNG to Brother P-touch Design&Print 2 on your iPhone.</p></div>${labelControlsHTML()}</div><div class="modal-actions"><button class="ghost" id="cancel-modal">Cancel</button><button class="secondary" id="download-label">Save PNG</button><button class="primary" id="share-label">Share to Brother</button></div></div></div>`;document.querySelector("#close-modal").onclick=closeModal;document.querySelector("#cancel-modal").onclick=closeModal;const update=()=>{readLabelControls();refreshLabelPreview(p)};["#label-preset","#label-length","#label-show-qr","#label-show-logo","#label-show-location"].forEach(s=>document.querySelector(s).onchange=update);document.querySelector("#download-label").onclick=async()=>{readLabelControls();await shareCanvas(await createLabelCanvas(p,labelSettings),labelSafeFilename(p))};document.querySelector("#share-label").onclick=document.querySelector("#download-label").onclick;refreshLabelPreview(p)}
+function renderLabelCenter(){currentTab="settings";app.innerHTML=shell(`<a class="back-link" id="back-settings">← Settings</a><section class="screen-heading"><p class="eyebrow">Brother PT-P300BT</p><h1>Label Center</h1><p>Create print-ready 12 mm labels and send them to Brother’s iPhone app.</p></section><section class="label-center-hero"><div><strong>12 mm</strong><span>tape profile</span></div><div><strong>${plants.length}</strong><span>plants available</span></div><div><strong>4</strong><span>label styles</span></div></section><section class="dashboard-section"><div class="label-action-grid"><button id="single-label-action"><span>🏷️</span><strong>Single plant label</strong><small>Choose one plant and preview it</small></button><button id="batch-label-action"><span>🗂️</span><strong>Batch labels</strong><small>Select multiple plants and export them</small></button></div></section><section class="dashboard-section"><div class="section-heading"><div><p class="eyebrow">Quick label</p><h2>Recent plants</h2></div></div><div class="mini-card-row">${plants.slice(0,8).map(p=>`<button class="mini-plant-card" data-label-plant="${esc(p.accession)}"><span>${esc(p.accession)}</span><strong>${esc(p.name)}</strong><small>Create label</small></button>`).join("")}</div></section><section class="label-instructions"><h3>Printing workflow</h3><p>Generate the label, tap <strong>Share to Brother</strong>, open it in P-touch Design&Print 2, confirm 12 mm tape, and print.</p></section>`,"settings");bindShell();document.querySelector("#back-settings").onclick=renderSettings;document.querySelector("#single-label-action").onclick=openPlantPickerForLabel;document.querySelector("#batch-label-action").onclick=openBatchLabelPicker;document.querySelectorAll("[data-label-plant]").forEach(b=>b.onclick=()=>openPlantLabelDesigner(plants.find(p=>p.accession===b.dataset.labelPlant)))}
+function openPlantPickerForLabel(){modalRoot.innerHTML=`<div class="modal-backdrop"><div class="modal"><div class="modal-header"><h2>Select a plant</h2><button class="icon-button" id="close-modal">×</button></div><input id="label-picker-search" type="search" placeholder="Search plants…"><div id="label-picker-results" class="picker-list"></div></div></div>`;document.querySelector("#close-modal").onclick=closeModal;const input=document.querySelector("#label-picker-search"),draw=()=>{const q=input.value.toLowerCase();document.querySelector("#label-picker-results").innerHTML=plants.filter(p=>`${p.accession} ${p.name}`.toLowerCase().includes(q)).slice(0,50).map(p=>`<button data-label-pick="${esc(p.accession)}"><strong>${esc(p.name)}</strong><span>${esc(p.accession)}</span></button>`).join("");document.querySelectorAll("[data-label-pick]").forEach(b=>b.onclick=()=>{const p=plants.find(x=>x.accession===b.dataset.labelPick);closeModal();openPlantLabelDesigner(p)})};input.oninput=draw;draw()}
+function openBatchLabelPicker(){labelBatch=[];modalRoot.innerHTML=`<div class="modal-backdrop"><div class="modal care-queue-modal"><div class="modal-header"><div><p class="eyebrow">Batch labels</p><h2>Select plants</h2></div><button class="icon-button" id="close-modal">×</button></div><input id="batch-label-search" type="search" placeholder="Search plants…"><div class="queue-select-all"><label><input type="checkbox" id="select-all-labels"> Select all visible</label><span id="batch-label-count">0 selected</span></div><div id="batch-label-list" class="care-queue-list"></div><div class="modal-actions"><button class="ghost" id="cancel-modal">Cancel</button><button class="primary" id="continue-batch-labels">Continue</button></div></div></div>`;document.querySelector("#close-modal").onclick=closeModal;document.querySelector("#cancel-modal").onclick=closeModal;const search=document.querySelector("#batch-label-search"),draw=()=>{const q=search.value.toLowerCase(),visible=plants.filter(p=>`${p.accession} ${p.name}`.toLowerCase().includes(q));document.querySelector("#batch-label-list").innerHTML=visible.map(p=>`<label class="care-queue-row"><input type="checkbox" value="${esc(p.id)}" ${labelBatch.includes(String(p.id))?"checked":""}><span><strong>${esc(p.name)}</strong><small>${esc(p.accession)}</small></span></label>`).join("");document.querySelectorAll("#batch-label-list input").forEach(cb=>cb.onchange=()=>{if(cb.checked&&!labelBatch.includes(cb.value))labelBatch.push(cb.value);if(!cb.checked)labelBatch=labelBatch.filter(x=>x!==cb.value);document.querySelector("#batch-label-count").textContent=`${labelBatch.length} selected`})};search.oninput=draw;draw();document.querySelector("#select-all-labels").onchange=e=>document.querySelectorAll("#batch-label-list input").forEach(cb=>{cb.checked=e.target.checked;cb.dispatchEvent(new Event("change"))});document.querySelector("#continue-batch-labels").onclick=()=>{if(!labelBatch.length)return showToast("Select at least one plant");openBatchLabelDesigner()}}
+function openBatchLabelDesigner(){const chosen=plants.filter(p=>labelBatch.includes(String(p.id)));modalRoot.innerHTML=`<div class="modal-backdrop"><div class="modal label-designer-modal"><div class="modal-header"><div><p class="eyebrow">Batch export</p><h2>${chosen.length} labels</h2></div><button class="icon-button" id="close-modal">×</button></div>${labelControlsHTML()}<div class="batch-label-preview-list">${chosen.slice(0,12).map(p=>`<div><strong>${esc(p.name)}</strong><span>${esc(p.accession)}</span></div>`).join("")}</div><div class="modal-actions"><button class="ghost" id="cancel-modal">Cancel</button><button class="primary" id="export-batch-labels">Export all PNGs</button></div></div></div>`;document.querySelector("#close-modal").onclick=closeModal;document.querySelector("#cancel-modal").onclick=closeModal;document.querySelector("#export-batch-labels").onclick=async()=>{readLabelControls();const btn=document.querySelector("#export-batch-labels");btn.disabled=true;btn.textContent="Generating…";const files=[];for(let i=0;i<chosen.length;i++){const c=await createLabelCanvas(chosen[i],labelSettings),blob=await new Promise(r=>c.toBlob(r,"image/png",1));files.push(new File([blob],labelSafeFilename(chosen[i],i+1),{type:"image/png"}))}if(navigator.canShare?.({files})){await navigator.share({files,title:"Orchard Collection labels"})}else{for(const file of files){const url=URL.createObjectURL(file),a=document.createElement("a");a.href=url;a.download=file.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)}showToast(`${files.length} labels downloaded`)}btn.disabled=false;btn.textContent="Export all PNGs"}}
+
 function renderCollectionScreen(){
   app.innerHTML=shell(`
     <section class="screen-heading"><p class="eyebrow">Browse</p><h1>Collection</h1><p>Search, sort, and open any plant.</p></section>
@@ -277,6 +305,7 @@ function renderCollectionScreen(){
         <option value="condition">Condition</option>
       </select>
       <button id="toggle-view" class="secondary compact">${collectionView==="cards"?"Locations":"Cards"}</button>
+      <button id="batch-labels" class="secondary compact">Print labels</button>
     </div>
     <section id="collection-results"></section>
   `,"collection");
@@ -285,6 +314,7 @@ function renderCollectionScreen(){
   search.oninput=()=>{collectionQuery=search.value;renderCollectionResults()};
   document.querySelector("#collection-sort").onchange=renderCollectionResults;
   document.querySelector("#toggle-view").onclick=()=>{collectionView=collectionView==="cards"?"locations":"cards";renderCollectionScreen()};
+  document.querySelector("#batch-labels").onclick=openBatchLabelPicker;
   renderCollectionResults();
 }
 
@@ -352,12 +382,14 @@ function renderSettings(){
       <article><div><strong>Account</strong><span>${esc(session.user.email)}</span></div><button class="secondary compact" id="settings-signout">Sign out</button></article>
       <article><div><strong>Theme</strong><span>Orchard Forest</span></div><span>Active</span></article>
       <article><div><strong>Home Screen</strong><span>Standalone PWA enabled</span></div><span>✓</span></article>
+      <article class="settings-action" id="open-label-center"><div><strong>Brother Label Center</strong><span>Design and export 12 mm PT-P300BT labels</span></div><span>›</span></article>
       <article><div><strong>NFC links</strong><span>Direct plant URLs are active</span></div><span>✓</span></article>
       <article><div><strong>Collection export</strong><span>Coming in a later phase</span></div><span>Soon</span></article>
     </section>
   `,"settings");
   bindShell();
   document.querySelector("#settings-signout").onclick=()=>supabase.auth.signOut();
+  document.querySelector("#open-label-center").onclick=renderLabelCenter;
 }
 
 function openQuickAdd(){
@@ -445,7 +477,7 @@ function renderPlantDetail(p){
     <section class="detail-hero ${img?"has-photo":""}" ${img?`style="background-image:url('${esc(img)}')"`:""}>
       <button class="favorite-hero ${p.favorite?"is-favorite":""}" id="favorite-hero">${p.favorite?"♥":"♡"}</button>
       <div class="detail-title"><span class="accession">${esc(p.accession)}</span><h1>${esc(p.name)}</h1><p>${esc(val(p,["status"],"Active"))} · ${esc(val(p,["condition"],"Not rated"))}</p>
-      <div class="detail-actions"><button id="edit-plant" class="primary">Edit plant</button><button id="copy-nfc" class="secondary">Copy NFC link</button><button id="delete-plant" class="ghost">Delete</button></div></div>
+      <div class="detail-actions"><button id="edit-plant" class="primary">Edit plant</button><button id="print-label" class="secondary">Print label</button><button id="copy-nfc" class="secondary">Copy NFC link</button><button id="delete-plant" class="ghost">Delete</button></div></div>
     </section>
     <section class="quick-bar">
       ${["Watered","Fertilized","New Leaf","Bloom","Repotted"].map(x=>`<button class="quick-action" data-action="${x}"><b>${iconFor(x)}</b><span>${x}</span></button>`).join("")}
@@ -471,6 +503,7 @@ function renderPlantDetail(p){
   bindShell();
   document.querySelector("#back-to-tab").onclick=()=>navigate(currentTab);
   document.querySelector("#favorite-hero").onclick=()=>toggleFavorite(p.id);
+  document.querySelector("#print-label").onclick=()=>openPlantLabelDesigner(p);
   document.querySelector("#copy-nfc").onclick=async()=>{await navigator.clipboard.writeText(nfc);showToast("Copied")};
   document.querySelector("#edit-plant").onclick=()=>openPlantEditModal(p);
   document.querySelector("#delete-plant").onclick=()=>confirmDeletePlant(p);
