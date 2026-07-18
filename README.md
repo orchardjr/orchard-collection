@@ -1,49 +1,35 @@
-# Orchard Collection — Live Supabase Edition
+# Orchard Collection v1.1 — Premium Plant Profiles
 
-This is a static, Cloudflare Pages-compatible plant collection app.
+This update keeps the existing Supabase database and authentication setup.
 
-## Included
+## New in this release
 
-- Supabase email/password sign-in
-- Persistent browser session
-- Private RLS-controlled plant queries
-- Live dashboard
-- Search across all plant fields
-- Individual plant pages
-- NFC-ready URLs such as `?plant=HOYA-0001`
-- Mobile-first design
+- Redesigned dashboard wording and polish
+- Premium individual plant profile pages
+- Care snapshot cards
+- Full plant metadata display
+- Notes section
+- Database history
+- NFC-ready plant URL
+- Copy accession and copy NFC-link controls
+- Optional support for future photo URL fields
 
-## Supabase configuration
+## Install
 
-The app uses:
-
-- Project URL: `https://igssrdlhxdmdwkuqpfrj.supabase.co`
-- Browser-safe publishable key in `config.js`
-
-The supplied URL originally ended in `/rest/v1/`. This package correctly uses the base project URL.
-
-## Deploy by replacing repository files
-
-1. Open your `orchard-collection` GitHub repository.
-2. Upload all files from this package into the repository root.
-3. Replace existing files when GitHub asks.
+1. Unzip this package.
+2. Upload `index.html`, `styles.css`, `app.js`, and `config.js` to the root of the existing GitHub repository.
+3. Replace the older files.
 4. Commit the changes.
-5. Cloudflare Pages should deploy automatically.
+5. Wait for Cloudflare Pages to redeploy.
 
 ## Test
 
-1. Open your Cloudflare Pages site.
-2. Sign in with the Supabase user you created.
-3. Confirm that 31 plants appear.
-4. Open a card.
-5. Test an NFC-style URL:
+Open any card. Its URL should look like:
 
-   `https://YOUR-SITE.pages.dev/?plant=HOYA-0001`
+`https://orchard-collection.pages.dev/?plant=HOYA-0001`
 
-## Important
+Test on both Mac and iPhone.
 
-Do not put a Supabase secret key or service-role key in this repository. Only the publishable key belongs in browser code.
+## Next release
 
-## Next database milestone
-
-The next release can add one-tap care logging and photo uploads. Before building those features, verify the exact columns in `activity_log` and `photos`, since their insert payloads must match your database schema.
+After the profile design is confirmed, the next database-backed feature will be one-tap care logging and an activity timeline.
