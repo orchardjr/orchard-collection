@@ -469,9 +469,9 @@ function openPlantLabelDesigner(p){
   labelDesigner.plant=p;
   if(!labelDesigner.template)labelDesigner.template=cloneTemplate(LABEL_TEMPLATES[labelDesigner.templateKey]||LABEL_TEMPLATES.botanical);
   const t=labelDesigner.template;
-  modalRoot.innerHTML=`<div class="label-quick-backdrop"><section class="label-quick-sheet"><header><button id="close-studio" class="icon-button">←</button><div><p class="eyebrow">Label preview</p><h2>${esc(p.name)}</h2></div><button id="quick-label-more" class="icon-button">•••</button></header><main><div class="quick-label-stage"><div class="quick-label-paper" style="--quick-ratio:${t.lengthMm/t.widthMm}">${t.elements.map(el=>labelElementHTML(el,p)).join("")}</div></div><div class="quick-label-plant"><span class="picker-thumb">${imageURL(p)?`<img src="${esc(imageURL(p))}" alt="">`:"🌿"}</span><div><strong>${esc(p.name)}</strong><small>${esc(p.accession)} · ${esc(val(p,["location","support"],"Unassigned"))}</small></div></div><div class="quick-label-options"><label>Template<select id="quick-template-select">${Object.entries(LABEL_TEMPLATES).map(([k,v])=>`<option value="${k}" ${labelDesigner.templateKey===k?"selected":""}>${esc(v.name)}</option>`).join("")}</select></label><div class="quick-label-data"><span><b>✓</b> Plant name</span><span><b>✓</b> Accession</span><span><b>✓</b> Location</span><span><b>✓</b> QR link</span></div></div></main><footer><button id="export-label" class="secondary">Save PNG</button><button id="print-label-now" class="primary">Print label</button></footer></section></div>`;
+  modalRoot.innerHTML=`<div class="label-quick-backdrop"><section class="label-quick-sheet"><header><button id="close-studio" class="icon-button">←</button><div><p class="eyebrow">Label preview</p><h2>${esc(p.name)}</h2></div><button id="quick-label-more" class="icon-button">•••</button></header><main><div class="quick-label-stage"><div class="quick-label-paper" style="--quick-ratio:${t.lengthMm/t.widthMm}"><img id="quick-label-render" alt="Exact label preview"></div></div><div class="quick-label-plant"><span class="picker-thumb">${imageURL(p)?`<img src="${esc(imageURL(p))}" alt="">`:"🌿"}</span><div><strong>${esc(p.name)}</strong><small>${esc(p.accession)} · ${esc(val(p,["location","support"],"Unassigned"))}</small></div></div><div class="quick-label-options"><label>Template<select id="quick-template-select">${Object.entries(LABEL_TEMPLATES).map(([k,v])=>`<option value="${k}" ${labelDesigner.templateKey===k?"selected":""}>${esc(v.name)}</option>`).join("")}</select></label><div class="quick-label-data"><span><b>✓</b> Plant name</span><span><b>✓</b> Accession</span><span><b>✓</b> Location</span><span><b>✓</b> QR link</span></div></div></main><footer><button id="export-label" class="secondary">Save PNG</button><button id="print-label-now" class="primary">Print label</button></footer></section></div>`;
   document.querySelector("#close-studio").onclick=closeModal;
-  for(const el of t.elements.filter(x=>x.type==="qr"))renderQRPlaceholder(el);
+  renderQuickLabelPreview();
   document.querySelector("#quick-label-more").onclick=()=>showToast("Advanced editing will arrive in v5");
   document.querySelector("#quick-template-select").onchange=e=>{labelDesigner.templateKey=e.target.value;labelDesigner.template=cloneTemplate(LABEL_TEMPLATES[e.target.value]);openPlantLabelDesigner(p)};
   document.querySelector("#export-label").onclick=async()=>{await exportCurrentLabel();saveLabelRecent(p,labelDesigner.templateKey)};
@@ -517,16 +517,146 @@ function startElementDrag(e,id){
 }
 function startElementResize(e,id){e.preventDefault();e.stopPropagation();const canvas=document.querySelector("#label-design-canvas"),el=labelDesigner.template.elements.find(x=>x.id===id),rect=canvas.getBoundingClientRect(),sx=e.clientX,sy=e.clientY,ow=el.w,oh=el.h;pushLabelHistory();const move=ev=>{el.w=Math.max(3,Math.min(100-el.x,ow+(ev.clientX-sx)/rect.width*100));el.h=Math.max(3,Math.min(100-el.y,oh+(ev.clientY-sy)/rect.height*100));const node=document.querySelector(`[data-element-id="${id}"]`);if(node){node.style.width=`${el.w}%`;node.style.height=`${el.h}%`}};const up=()=>{window.removeEventListener("pointermove",move);window.removeEventListener("pointerup",up);renderDesignerWorkspace()};window.addEventListener("pointermove",move);window.addEventListener("pointerup",up)}
 async function createProfessionalLabelCanvas(p,template=labelDesigner.template){
- const scale=QL820_PROFILE.dpi/25.4,canvas=document.createElement("canvas");canvas.width=Math.round(template.lengthMm*scale);canvas.height=Math.round(template.widthMm*scale);const ctx=canvas.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,canvas.width,canvas.height);ctx.fillStyle="#000";ctx.textBaseline="top";
- for(const el of template.elements){const x=el.x/100*canvas.width,y=el.y/100*canvas.height,w=el.w/100*canvas.width,h=el.h/100*canvas.height;if(el.type==="qr"){const src=await QRCode.toDataURL(plantDirectURL(p),{margin:0,width:512,errorCorrectionLevel:"M"});const img=new Image();await new Promise((r,j)=>{img.onload=r;img.onerror=j;img.src=src});ctx.drawImage(img,x,y,Math.min(w,h),Math.min(w,h))}else if(el.type==="line"){ctx.fillRect(x,y,w,Math.max(2,h*.2))}else if(el.type==="box"){ctx.strokeStyle="#000";ctx.lineWidth=3;ctx.strokeRect(x,y,w,h)}else{const px=Math.max(10,(el.fontSize||4)*scale);ctx.font=`${el.weight||400} ${px}px Arial`;ctx.textAlign=el.align||"left";const tx=el.align==="center"?x+w/2:el.align==="right"?x+w:x;const text=labelFieldValue(p,el);wrapCanvasLines(ctx,text,w).slice(0,Math.max(1,Math.floor(h/(px*1.08)))).forEach((line,i)=>ctx.fillText(line,tx,y+i*px*1.08,w))}}
- return canvas
+ const scale=QL820_PROFILE.dpi/25.4;
+ const canvas=document.createElement("canvas");
+ canvas.width=Math.round(template.lengthMm*scale);
+ canvas.height=Math.round(template.widthMm*scale);
+ const ctx=canvas.getContext("2d",{alpha:false});
+ ctx.fillStyle="#fff";
+ ctx.fillRect(0,0,canvas.width,canvas.height);
+ ctx.fillStyle="#000";
+ ctx.textBaseline="top";
+ ctx.imageSmoothingEnabled=false;
+
+ for(const el of template.elements){
+  const x=el.x/100*canvas.width;
+  const y=el.y/100*canvas.height;
+  const w=el.w/100*canvas.width;
+  const h=el.h/100*canvas.height;
+
+  if(el.type==="qr"){
+   const src=await QRCode.toDataURL(plantDirectURL(p),{
+    margin:0,
+    width:768,
+    errorCorrectionLevel:"M",
+    color:{dark:"#000000",light:"#ffffff"}
+   });
+   const img=new Image();
+   await new Promise((resolve,reject)=>{
+    img.onload=resolve;
+    img.onerror=reject;
+    img.src=src;
+   });
+   const size=Math.min(w,h);
+   ctx.drawImage(img,x,y,size,size);
+   continue;
+  }
+
+  if(el.type==="line"){
+   ctx.fillRect(x,y,w,Math.max(2,h*.2));
+   continue;
+  }
+
+  if(el.type==="box"){
+   ctx.strokeStyle="#000";
+   ctx.lineWidth=Math.max(2,scale*.25);
+   ctx.strokeRect(x,y,w,h);
+   continue;
+  }
+
+  const fitted=fitCanvasText(
+   ctx,
+   labelFieldValue(p,el),
+   w,
+   h,
+   Math.max(2.2,Number(el.fontSize||4)),
+   Number(el.weight||400),
+   scale
+  );
+
+  ctx.font=`${Number(el.weight||400)} ${fitted.fontPx}px Arial, Helvetica, sans-serif`;
+  ctx.textAlign=el.align||"left";
+  ctx.textBaseline="top";
+
+  const tx=el.align==="center"?x+w/2:el.align==="right"?x+w:x;
+  fitted.lines.forEach((line,index)=>{
+   ctx.fillText(line,tx,y+index*fitted.lineHeightPx);
+  });
+ }
+ return canvas;
 }
-function wrapCanvasLines(ctx,text,maxWidth){const words=String(text||"").split(/\s+/),lines=[];let line="";for(const word of words){const test=line?`${line} ${word}`:word;if(ctx.measureText(test).width>maxWidth&&line){lines.push(line);line=word}else line=test}if(line)lines.push(line);return lines}
-async function exportCurrentLabel(){const canvas=await createProfessionalLabelCanvas(labelDesigner.plant),blob=await new Promise(r=>canvas.toBlob(r,"image/png",1)),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=labelSafeFilename(labelDesigner.plant);a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);showToast("High-resolution label saved")}
-async function printCurrentLabel(){const canvas=await createProfessionalLabelCanvas(labelDesigner.plant),url=canvas.toDataURL("image/png"),win=window.open("","_blank");if(!win){showToast("Allow pop-ups to print");return}const t=labelDesigner.template;win.document.write(`<!doctype html><html><head><title>${esc(labelDesigner.plant.accession)} label</title><style>@page{size:${t.lengthMm}mm ${t.widthMm}mm;margin:0}html,body{margin:0;width:${t.lengthMm}mm;height:${t.widthMm}mm;overflow:hidden}img{display:block;width:${t.lengthMm}mm;height:${t.widthMm}mm;object-fit:fill}@media print{button{display:none}}</style></head><body><img src="${url}" onload="setTimeout(()=>window.print(),250)"></body></html>`);win.document.close()}
-function openBatchLabelPicker(){
- labelBatch=[];modalRoot.innerHTML=`<div class="modal-backdrop"><div class="modal batch-label-modal"><div class="modal-header"><div><p class="eyebrow">Batch print</p><h2>Select plants</h2></div><button class="icon-button" id="close-modal">×</button></div><div class="batch-toolbar"><input id="batch-label-search" type="search" placeholder="Search collection…"><label><input type="checkbox" id="select-all-labels"> Select visible</label><strong id="batch-label-count">0 selected</strong></div><div id="batch-label-list" class="batch-plant-grid"></div><div class="modal-actions"><button class="ghost" id="cancel-modal">Cancel</button><button class="primary" id="continue-batch-labels">Continue</button></div></div></div>`;document.querySelector("#close-modal").onclick=closeModal;document.querySelector("#cancel-modal").onclick=closeModal;const search=document.querySelector("#batch-label-search");
- const draw=()=>{const q=search.value.toLowerCase(),visible=plants.filter(p=>`${p.accession} ${p.name} ${val(p,["location","support"],"")}`.toLowerCase().includes(q));document.querySelector("#batch-label-list").innerHTML=visible.map(p=>`<label class="batch-plant-card"><input type="checkbox" value="${esc(p.id)}" ${labelBatch.includes(String(p.id))?"checked":""}><span>${imageURL(p)?`<img src="${esc(imageURL(p))}" alt="">`:"🌿"}</span><strong>${esc(p.name)}</strong><small>${esc(p.accession)}</small></label>`).join("");document.querySelectorAll("#batch-label-list input").forEach(cb=>cb.onchange=()=>{if(cb.checked&&!labelBatch.includes(cb.value))labelBatch.push(cb.value);if(!cb.checked)labelBatch=labelBatch.filter(x=>x!==cb.value);document.querySelector("#batch-label-count").textContent=`${labelBatch.length} selected`})};search.oninput=draw;draw();document.querySelector("#select-all-labels").onchange=e=>document.querySelectorAll("#batch-label-list input").forEach(cb=>{cb.checked=e.target.checked;cb.dispatchEvent(new Event("change"))});document.querySelector("#continue-batch-labels").onclick=()=>{if(!labelBatch.length)return showToast("Select at least one plant");openBatchLabelDesigner()}
+
+function fitCanvasText(ctx,text,maxWidth,maxHeight,fontMm,weight,scale){
+ const content=String(text||"").trim();
+ let currentMm=fontMm;
+ let result={fontPx:currentMm*scale,lineHeightPx:currentMm*scale*1.08,lines:[content]};
+
+ while(currentMm>=2.2){
+  const fontPx=currentMm*scale;
+  const lineHeightPx=fontPx*1.08;
+  ctx.font=`${weight} ${fontPx}px Arial, Helvetica, sans-serif`;
+  const lines=wrapCanvasLines(ctx,content,maxWidth);
+  const allowed=Math.max(1,Math.floor((maxHeight+.5)/lineHeightPx));
+  const allFit=lines.every(line=>ctx.measureText(line).width<=maxWidth+.5);
+
+  result={fontPx,lineHeightPx,lines:lines.slice(0,allowed)};
+  if(allFit&&lines.length<=allowed)return result;
+  currentMm-=.2;
+ }
+
+ return result;
+}
+
+function wrapCanvasLines(ctx,text,maxWidth){
+ const words=String(text||"").split(/\s+/).filter(Boolean);
+ if(!words.length)return [""];
+ const lines=[];
+ let line="";
+
+ for(const word of words){
+  if(ctx.measureText(word).width>maxWidth){
+   if(line){lines.push(line);line=""}
+   let chunk="";
+   for(const char of word){
+    const test=chunk+char;
+    if(ctx.measureText(test).width>maxWidth&&chunk){
+     lines.push(chunk);
+     chunk=char;
+    }else{
+     chunk=test;
+    }
+   }
+   if(chunk)line=chunk;
+   continue;
+  }
+
+  const test=line?`${line} ${word}`:word;
+  if(ctx.measureText(test).width>maxWidth&&line){
+   lines.push(line);
+   line=word;
+  }else{
+   line=test;
+  }
+ }
+ if(line)lines.push(line);
+ return lines;
+}
+
+async function renderQuickLabelPreview(){
+ const img=document.querySelector("#quick-label-render");
+ if(!img||!labelDesigner.plant||!labelDesigner.template)return;
+ img.removeAttribute("src");
+ img.classList.add("is-loading");
+ try{
+  const canvas=await createProfessionalLabelCanvas(labelDesigner.plant,labelDesigner.template);
+  if(!document.body.contains(img))return;
+  img.src=canvas.toDataURL("image/png");
+ }catch(error){
+  console.error("Label preview failed",error);
+  showToast("Could not render label preview");
+ }finally{
+  img.classList.remove("is-loading");
+ }
 }
 function openBatchLabelDesigner(){
  const chosen=plants.filter(p=>labelBatch.includes(String(p.id)));const templates=Object.entries(LABEL_TEMPLATES);

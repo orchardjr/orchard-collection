@@ -606,3 +606,20 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}
 }
+
+
+/* v4.2.1 — one exact renderer for preview, PNG export, and printing */
+.quick-label-paper{
+  display:grid;
+  place-items:stretch;
+}
+.quick-label-paper > #quick-label-render{
+  display:block;
+  width:100%;
+  height:100%;
+  object-fit:fill;
+  background:#fff;
+}
+.quick-label-paper > #quick-label-render.is-loading{
+  opacity:.35;
+}
