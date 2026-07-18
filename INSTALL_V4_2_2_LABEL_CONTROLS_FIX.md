@@ -1,13 +1,15 @@
 # Orchard Collection v4.2.2 — Label Controls Fix
 
-Fixes the Label Center controls.
+This package fixes the real root cause: the label buttons in v4.2.1 called
+functions that did not exist.
 
-- Restores working Save PNG
-- Restores working Print Label
-- Opens the print window immediately so Safari does not block it
-- Adds editable plant name, accession, and location fields
-- Updates the exact preview while editing
-- Adds Reset to plant data
-- Preserves the unified 300-DPI renderer
+- Save PNG works
+- Print Label works
+- Plant name, accession, and location are editable
+- Preview updates live
+- Reset restores plant data
+- Safari pop-up blocking is handled correctly
+- Preview, PNG, and print still use the same 300-DPI renderer
 
-Deploy the complete package to Cloudflare Pages, then refresh the app once in Safari.
+Deploy the full ZIP to Cloudflare Pages, refresh the site once in Safari, then
+fully close and reopen the installed app.

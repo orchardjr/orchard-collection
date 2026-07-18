@@ -625,15 +625,11 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 }
 
 
-/* v4.2.2 — working label controls and editable quick labels */
-.quick-label-editor{margin-top:14px;border:1px solid var(--line);border-radius:16px;background:var(--surface);overflow:hidden}
-.quick-label-editor summary{cursor:pointer;padding:14px 16px;font-weight:800;list-style:none}
-.quick-label-editor summary::-webkit-details-marker{display:none}
-.quick-label-editor[open] summary{border-bottom:1px solid var(--line)}
-.quick-label-edit-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:14px 16px 8px}
-.quick-label-edit-grid label:last-child{grid-column:1/-1}
-.quick-label-edit-grid input{width:100%;margin-top:6px}
-.quick-label-editor #reset-label-text{margin:4px 16px 14px}
-#quick-label-more{width:auto;min-width:56px;padding-inline:12px;font-size:.76rem;font-weight:800}
-.label-quick-sheet footer button:disabled{opacity:.55;cursor:wait}
-@media(max-width:620px){.quick-label-edit-grid{grid-template-columns:1fr}.quick-label-edit-grid label:last-child{grid-column:auto}}
+/* v4.2.2 — working quick-label editor and actions */
+.quick-label-editor{display:grid;gap:13px;padding:16px;border:1px solid var(--line);border-radius:18px;background:var(--surface)}
+.quick-label-editor label{display:grid;gap:7px}
+.quick-label-editor label>span{font-size:.72rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.quick-label-editor input,.quick-label-editor select{width:100%;min-height:44px}
+.quick-label-editor-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.label-quick-sheet footer button:disabled{opacity:.58;cursor:wait}
+@media(max-width:620px){.quick-label-editor-grid{grid-template-columns:1fr}}
