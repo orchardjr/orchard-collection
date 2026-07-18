@@ -410,16 +410,19 @@ const LABEL_TEMPLATES={
     {id:"name",type:"text",field:"name",x:33,y:19,w:24,h:20,fontSize:4.1,weight:600,align:"left"}
   ]}
 };
-let labelDesigner={plant:null,templateKey:"botanical",template:null,selectedId:null,zoom:1,history:[],future:[]};
+let labelDesigner={plant:null,templateKey:"botanical",template:null,selectedId:null,zoom:1,history:[],future:[],overrides:{}};
 let mobileStudioPanel=null;
 function plantDirectURL(p){return `${location.origin}${location.pathname}?plant=${encodeURIComponent(p.accession)}`}
 function cloneTemplate(t){return JSON.parse(JSON.stringify(t))}
 function labelFieldValue(p,el){
+  const overrides=labelDesigner.overrides||{};
   if(el.field==="static")return el.value||"";
   if(el.field==="url")return plantDirectURL(p);
   if(el.field==="today")return new Date().toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"});
-  if(el.field==="location")return val(p,["location","support"],"Unassigned");
+  if(el.field==="location")return overrides.location??val(p,["location","support"],"Unassigned");
   if(el.field==="acquired")return fmtDate(p.acquired_date);
+  if(el.field==="name")return overrides.name??String(p?.name??"");
+  if(el.field==="accession")return overrides.accession??String(p?.accession??"");
   return String(p?.[el.field]??"");
 }
 function labelSafeFilename(p,index=1){return `${String(p.accession||"plant").replace(/[^a-z0-9_-]/gi,"-")}-QL820-${index}.png`}
@@ -466,16 +469,40 @@ function openPlantPickerForLabel(){
 }
 function openPlantLabelDesigner(p){
   if(!p)return;
+  if(labelDesigner.plant?.accession!==p.accession)labelDesigner.overrides={};
   labelDesigner.plant=p;
   if(!labelDesigner.template)labelDesigner.template=cloneTemplate(LABEL_TEMPLATES[labelDesigner.templateKey]||LABEL_TEMPLATES.botanical);
   const t=labelDesigner.template;
-  modalRoot.innerHTML=`<div class="label-quick-backdrop"><section class="label-quick-sheet"><header><button id="close-studio" class="icon-button">←</button><div><p class="eyebrow">Label preview</p><h2>${esc(p.name)}</h2></div><button id="quick-label-more" class="icon-button">•••</button></header><main><div class="quick-label-stage"><div class="quick-label-paper" style="--quick-ratio:${t.lengthMm/t.widthMm}"><img id="quick-label-render" alt="Exact label preview"></div></div><div class="quick-label-plant"><span class="picker-thumb">${imageURL(p)?`<img src="${esc(imageURL(p))}" alt="">`:"🌿"}</span><div><strong>${esc(p.name)}</strong><small>${esc(p.accession)} · ${esc(val(p,["location","support"],"Unassigned"))}</small></div></div><div class="quick-label-options"><label>Template<select id="quick-template-select">${Object.entries(LABEL_TEMPLATES).map(([k,v])=>`<option value="${k}" ${labelDesigner.templateKey===k?"selected":""}>${esc(v.name)}</option>`).join("")}</select></label><div class="quick-label-data"><span><b>✓</b> Plant name</span><span><b>✓</b> Accession</span><span><b>✓</b> Location</span><span><b>✓</b> QR link</span></div></div></main><footer><button id="export-label" class="secondary">Save PNG</button><button id="print-label-now" class="primary">Print label</button></footer></section></div>`;
+  const editName=labelFieldValue(p,{field:"name"});
+  const editAccession=labelFieldValue(p,{field:"accession"});
+  const editLocation=labelFieldValue(p,{field:"location"});
+  modalRoot.innerHTML=`<div class="label-quick-backdrop"><section class="label-quick-sheet"><header><button id="close-studio" class="icon-button">←</button><div><p class="eyebrow">Label preview</p><h2>${esc(p.name)}</h2></div><button id="quick-label-more" class="icon-button" aria-label="Edit label">Edit</button></header><main><div class="quick-label-stage"><div class="quick-label-paper" style="--quick-ratio:${t.lengthMm/t.widthMm}"><img id="quick-label-render" alt="Exact label preview"></div></div><div class="quick-label-plant"><span class="picker-thumb">${imageURL(p)?`<img src="${esc(imageURL(p))}" alt="">`:"🌿"}</span><div><strong>${esc(p.name)}</strong><small>${esc(p.accession)} · ${esc(val(p,["location","support"],"Unassigned"))}</small></div></div><div class="quick-label-options"><label>Template<select id="quick-template-select">${Object.entries(LABEL_TEMPLATES).map(([k,v])=>`<option value="${k}" ${labelDesigner.templateKey===k?"selected":""}>${esc(v.name)}</option>`).join("")}</select></label><details id="quick-label-editor" class="quick-label-editor" open><summary>Edit label text</summary><div class="quick-label-edit-grid"><label>Plant name<input id="quick-edit-name" value="${esc(editName)}"></label><label>Accession<input id="quick-edit-accession" value="${esc(editAccession)}"></label><label>Location<input id="quick-edit-location" value="${esc(editLocation)}"></label></div><button id="reset-label-text" class="ghost compact" type="button">Reset to plant data</button></details><div class="quick-label-data"><span><b>✓</b> Plant name</span><span><b>✓</b> Accession</span><span><b>✓</b> Location</span><span><b>✓</b> QR link</span></div></div></main><footer><button id="export-label" class="secondary">Save PNG</button><button id="print-label-now" class="primary">Print label</button></footer></section></div>`;
   document.querySelector("#close-studio").onclick=closeModal;
   renderQuickLabelPreview();
-  document.querySelector("#quick-label-more").onclick=()=>showToast("Advanced editing will arrive in v5");
+  document.querySelector("#quick-label-more").onclick=()=>document.querySelector("#quick-label-editor")?.toggleAttribute("open");
   document.querySelector("#quick-template-select").onchange=e=>{labelDesigner.templateKey=e.target.value;labelDesigner.template=cloneTemplate(LABEL_TEMPLATES[e.target.value]);openPlantLabelDesigner(p)};
-  document.querySelector("#export-label").onclick=async()=>{await exportCurrentLabel();saveLabelRecent(p,labelDesigner.templateKey)};
-  document.querySelector("#print-label-now").onclick=async()=>{saveLabelRecent(p,labelDesigner.templateKey);await printCurrentLabel()};
+  const updateOverride=()=>{
+    labelDesigner.overrides={
+      name:document.querySelector("#quick-edit-name").value,
+      accession:document.querySelector("#quick-edit-accession").value,
+      location:document.querySelector("#quick-edit-location").value
+    };
+    renderQuickLabelPreview();
+  };
+  ["#quick-edit-name","#quick-edit-accession","#quick-edit-location"].forEach(sel=>document.querySelector(sel).addEventListener("input",debounce(updateOverride,120)));
+  document.querySelector("#reset-label-text").onclick=()=>{labelDesigner.overrides={};openPlantLabelDesigner(p)};
+  document.querySelector("#export-label").onclick=async e=>{
+    const button=e.currentTarget;
+    button.disabled=true;button.textContent="Saving…";
+    try{await exportCurrentLabel();saveLabelRecent(p,labelDesigner.templateKey)}
+    finally{button.disabled=false;button.textContent="Save PNG"}
+  };
+  document.querySelector("#print-label-now").onclick=async e=>{
+    const button=e.currentTarget;
+    button.disabled=true;button.textContent="Preparing…";
+    try{saveLabelRecent(p,labelDesigner.templateKey);await printCurrentLabel()}
+    finally{button.disabled=false;button.textContent="Print label"}
+  };
 }
 function renderDesignerWorkspace(){
  const host=document.querySelector("#designer-workspace");if(!host)return;const t=labelDesigner.template,p=labelDesigner.plant,selected=t.elements.find(e=>e.id===labelDesigner.selectedId);
@@ -658,6 +685,43 @@ async function renderQuickLabelPreview(){
   img.classList.remove("is-loading");
  }
 }
+async function exportCurrentLabel(){
+  if(!labelDesigner.plant||!labelDesigner.template)throw new Error("No label selected");
+  const canvas=await createProfessionalLabelCanvas(labelDesigner.plant,labelDesigner.template);
+  const blob=await new Promise((resolve,reject)=>canvas.toBlob(value=>value?resolve(value):reject(new Error("PNG creation failed")),"image/png",1));
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;
+  a.download=labelSafeFilename({...labelDesigner.plant,accession:labelFieldValue(labelDesigner.plant,{field:"accession"})});
+  a.style.display="none";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),3000);
+  showToast("Label PNG saved");
+}
+
+async function printCurrentLabel(){
+  if(!labelDesigner.plant||!labelDesigner.template)throw new Error("No label selected");
+  const t=labelDesigner.template;
+  const printWindow=window.open("","_blank");
+  if(!printWindow){showToast("Allow pop-ups to print labels");return}
+  printWindow.document.write(`<!doctype html><html><head><title>Preparing label…</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;background:#fff;font-family:Arial,sans-serif}.loading{display:grid;place-items:center;height:100vh;font-size:18px}@page{size:${t.lengthMm}mm ${t.widthMm}mm;margin:0}</style></head><body><div class="loading">Preparing label…</div></body></html>`);
+  printWindow.document.close();
+  try{
+    const canvas=await createProfessionalLabelCanvas(labelDesigner.plant,t);
+    const data=canvas.toDataURL("image/png");
+    printWindow.document.open();
+    printWindow.document.write(`<!doctype html><html><head><title>${esc(labelFieldValue(labelDesigner.plant,{field:"accession"}))}</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>@page{size:${t.lengthMm}mm ${t.widthMm}mm;margin:0}html,body{margin:0;padding:0;width:${t.lengthMm}mm;height:${t.widthMm}mm;overflow:hidden;background:#fff}img{display:block;width:${t.lengthMm}mm;height:${t.widthMm}mm;object-fit:fill}</style></head><body><img src="${data}" alt="Plant label"><script>const img=document.querySelector('img');img.onload=()=>setTimeout(()=>window.print(),250);<\/script></body></html>`);
+    printWindow.document.close();
+  }catch(error){
+    printWindow.close();
+    console.error(error);
+    showToast("Could not prepare label for printing");
+    throw error;
+  }
+}
+
 function openBatchLabelDesigner(){
  const chosen=plants.filter(p=>labelBatch.includes(String(p.id)));const templates=Object.entries(LABEL_TEMPLATES);
  modalRoot.innerHTML=`<div class="modal-backdrop"><div class="modal batch-review-modal"><div class="modal-header"><div><p class="eyebrow">Batch job</p><h2>${chosen.length} labels ready</h2></div><button class="icon-button" id="close-modal">×</button></div><div class="batch-review-layout"><div><label>Template<select id="batch-template">${templates.map(([k,t])=>`<option value="${k}">${esc(t.name)}</option>`).join("")}</select></label><div class="batch-summary"><strong>${chosen.length}</strong><span>labels</span><strong>62 mm</strong><span>roll</span><strong>Auto</strong><span>cutting</span></div><p>The print document contains one correctly sized page per plant. Choose the QL-820NWB in the system print dialog.</p></div><div class="batch-label-preview-list">${chosen.slice(0,20).map(p=>`<div><strong>${esc(p.name)}</strong><span>${esc(p.accession)}</span></div>`).join("")}${chosen.length>20?`<p>+ ${chosen.length-20} more</p>`:""}</div></div><div class="modal-actions"><button class="ghost" id="cancel-modal">Cancel</button><button class="secondary" id="export-batch-labels">Export PNGs</button><button class="primary" id="print-batch-labels">Print batch</button></div></div></div>`;document.querySelector("#close-modal").onclick=closeModal;document.querySelector("#cancel-modal").onclick=closeModal;
