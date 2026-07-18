@@ -16,7 +16,7 @@ const daysSince=v=>{if(!v)return null;const d=new Date(v);if(Number.isNaN(d.getT
 const iconFor=t=>({watered:"💧",fertilized:"🧪","new leaf":"🌱",bloom:"🌸",repotted:"🪴",propagated:"✂️",note:"📝",photo:"📷"}[String(t).toLowerCase()]||"•");
 function showToast(m){toast.textContent=m;toast.classList.add("show");setTimeout(()=>toast.classList.remove("show"),2600)}
 function closeModal(){modalRoot.innerHTML=""}
-function header(email=""){return `<header class="topbar"><div class="brand"><div class="brand-mark">OC</div><div class="brand-copy"><strong>Orchard Collection</strong><span>${esc(email)}</span></div></div><button id="signout" class="secondary">Sign out</button></header>`}
+function header(email=""){return `<header class="topbar"><div class="brand"><img src="/logo-mark.svg" alt="" class="brand-logo"><div class="brand-copy"><strong>Orchard Collection</strong><span>${esc(email)}</span></div></div><button id="signout" class="secondary">Sign out</button></header>`}
 function bindHeader(){document.querySelector("#signout")?.addEventListener("click",()=>supabase.auth.signOut())}
 function imageURL(p){const own=photos.find(x=>x.plant_accession===p.accession)?.photo_url;return own||val(p,["hero_image","photo_url","image_url","cover_photo","primary_photo"],"")}
 function plantActivities(accession){return activities.filter(x=>x.plant_accession===accession).sort((a,b)=>new Date(b.occurred_at||b.created_at)-new Date(a.occurred_at||a.created_at))}
@@ -325,7 +325,7 @@ photoPicker.addEventListener("change",async()=>{
 });
 
 async function renderAuthenticated(s){
-  session=s;app.innerHTML=`<section class="loading-screen"><div class="brand-mark">OC</div><p>Loading your collection…</p></section>`;
+  session=s;app.innerHTML=`<section class="loading-screen"><img src="/logo-mark.svg" alt="Orchard Collection" class="splash-logo"><p>Loading your collection…</p></section>`;
   try{await loadAll();const accession=new URLSearchParams(location.search).get("plant");accession?detail(plants.find(p=>p.accession===accession)):dashboard()}
   catch(e){app.innerHTML=`<div>${header(s.user.email)}<div class="content"><div class="error-panel"><strong>The app connected, but the v2 database upgrade may not have been run yet.</strong><br><br>${esc(e.message)}</div></div></div>`;bindHeader()}
 }

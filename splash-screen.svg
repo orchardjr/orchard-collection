@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1170 2532">
+<defs>
+  <radialGradient id="bg" cx="70%" cy="0%" r="90%">
+    <stop offset="0" stop-color="#244932"/>
+    <stop offset=".5" stop-color="#0d2218"/>
+    <stop offset="1" stop-color="#08130e"/>
+  </radialGradient>
+</defs>
+<rect width="1170" height="2532" fill="url(#bg)"/>
+<g opacity=".12" stroke="#a8c5a1" fill="none" stroke-width="5">
+  <path d="M0 1950 C240 1650 240 1200 160 850"/>
+  <path d="M1170 1800 C910 1560 900 1210 1010 840"/>
+  <ellipse cx="130" cy="980" rx="48" ry="95" transform="rotate(-25 130 980)"/>
+  <ellipse cx="1040" cy="1040" rx="48" ry="95" transform="rotate(25 1040 1040)"/>
+</g>
+<image href="icon-512.png" x="329" y="600" width="512" height="512"/>
+<text x="585" y="1290" text-anchor="middle" font-size="104" font-family="Georgia, serif" letter-spacing="10" fill="#f4f1e8">ORCHARD</text>
+<text x="585" y="1380" text-anchor="middle" font-size="42" font-family="Arial, sans-serif" letter-spacing="20" fill="#a8c5a1">COLLECTION</text>
+<text x="585" y="1495" text-anchor="middle" font-size="30" font-family="Arial, sans-serif" letter-spacing="4" fill="#d4af37">CULTIVATE · COLLECT · CHERISH</text>
+</svg>

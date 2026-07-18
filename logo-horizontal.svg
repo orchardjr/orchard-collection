@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 320" role="img" aria-labelledby="title">
+<title>Orchard Collection</title>
+<defs>
+  <linearGradient id="gold" x1="0" x2="1"><stop offset="0" stop-color="#f4e8bd"/><stop offset="1" stop-color="#d4af37"/></linearGradient>
+  <linearGradient id="leaf" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#52734d"/><stop offset="1" stop-color="#a8c5a1"/></linearGradient>
+</defs>
+<g transform="translate(10 10) scale(.58)">
+  <circle cx="280" cy="256" r="155" fill="none" stroke="url(#gold)" stroke-width="8"/>
+  <text x="280" y="335" text-anchor="middle" font-size="260" font-family="Georgia, serif" fill="#f4f1e8">O</text>
+  <path d="M122 372 C174 324 176 238 151 145" fill="none" stroke="#879f72" stroke-width="9" stroke-linecap="round"/>
+  <g fill="url(#leaf)" stroke="#d7c88a" stroke-width="3">
+    <ellipse cx="138" cy="160" rx="27" ry="48" transform="rotate(-25 138 160)"/>
+    <ellipse cx="172" cy="208" rx="25" ry="45" transform="rotate(36 172 208)"/>
+    <ellipse cx="125" cy="252" rx="29" ry="51" transform="rotate(-32 125 252)"/>
+    <ellipse cx="177" cy="288" rx="24" ry="42" transform="rotate(48 177 288)"/>
+    <ellipse cx="146" cy="352" rx="25" ry="44" transform="rotate(-48 146 352)"/>
+  </g>
+</g>
+<text x="360" y="145" font-size="98" font-family="Georgia, serif" letter-spacing="9" fill="#f4f1e8">ORCHARD</text>
+<text x="368" y="220" font-size="38" font-family="Arial, sans-serif" letter-spacing="18" fill="#a8c5a1">COLLECTION</text>
+<text x="370" y="274" font-size="27" font-family="Arial, sans-serif" letter-spacing="3" fill="#d4af37">CULTIVATE · COLLECT · CHERISH</text>
+</svg>

@@ -1,0 +1,16 @@
+:root{
+  --orchard-forest:#0D2218;
+  --orchard-pine:#18402C;
+  --orchard-leaf:#2F6A4F;
+  --orchard-sage:#8CA881;
+  --orchard-mist:#A8C5A1;
+  --orchard-cream:#F4F1E8;
+  --orchard-gold:#D4AF37;
+  --orchard-ink:#08130E;
+  --orchard-serif:Georgia,"Times New Roman",serif;
+  --orchard-sans:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+}
+.orchard-brand-lockup{display:flex;align-items:center;gap:12px}
+.orchard-brand-lockup img{width:46px;height:46px;border-radius:14px}
+.orchard-brand-lockup strong{font-family:var(--orchard-serif);letter-spacing:.04em}
+.orchard-tagline{color:var(--orchard-gold);letter-spacing:.08em;text-transform:uppercase}
