@@ -5,3 +5,5 @@ self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=
 self.addEventListener('fetch',event=>event.respondWith(fetch(event.request).catch(()=>caches.match(event.request))));
 
 // mobile-nav-hotfix-v3.1.1
+
+// v3.1.2 iPhone Pro Max sizing cache refresh

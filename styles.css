@@ -376,3 +376,44 @@ html{background:var(--pro-bg)}body{background:var(--pro-bg);color:var(--pro-text
     justify-self:center !important;
   }
 }
+
+/* v3.1.2 — iPhone Pro Max responsive sizing */
+@media (max-width: 620px){
+  :root{--mobile-nav-height:62px}
+  .professional-content,.content{padding-top:calc(10px + env(safe-area-inset-top));padding-left:15px;padding-right:15px;padding-bottom:calc(var(--mobile-nav-height) + 18px + env(safe-area-inset-bottom))}
+  .dashboard-welcome.professional-hero{padding:18px 20px;min-height:0;border-radius:22px;margin:0 0 16px}
+  .dashboard-welcome .eyebrow{font-size:.68rem;letter-spacing:.18em;margin-bottom:8px}
+  .dashboard-welcome h1{font-size:clamp(2rem,9vw,2.65rem);line-height:1.02;margin:0 0 8px}
+  .dashboard-welcome p:last-child{font-size:.96rem;margin:0}
+  .dashboard-hero{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0 0 10px}
+  .dashboard-hero>div{min-height:118px;padding:17px 16px;border-radius:20px;display:flex;flex-direction:column;justify-content:flex-end}
+  .dashboard-hero strong{font-size:2.55rem;line-height:.95;letter-spacing:-.06em}
+  .dashboard-hero span{font-size:.78rem;line-height:1.25;margin-top:8px}
+  .dashboard-stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .dashboard-stat{min-height:116px;padding:15px;border-radius:19px;align-content:center}
+  .dashboard-stat span{font-size:1.15rem}
+  .dashboard-stat strong{font-size:2rem;line-height:1;margin-top:9px}
+  .dashboard-stat small{font-size:.73rem;line-height:1.2;margin-top:7px}
+  .dashboard-section{margin-top:22px}
+  .section-heading{align-items:center;margin-bottom:10px}
+  .section-heading h2{font-size:1.65rem}
+  .section-heading .eyebrow{font-size:.66rem}
+  .section-heading button{min-height:42px;padding:0 13px;border-radius:15px;font-size:.82rem}
+  .smart-care-grid{grid-template-columns:1fr;gap:10px}
+  .smart-care-card{padding:15px;border-radius:20px}
+  .smart-care-head{margin-bottom:10px}
+  .smart-care-head>span{width:40px;height:40px;border-radius:13px;font-size:1.15rem}
+  .smart-care-card .empty-state{padding:13px 14px;border-radius:15px;font-size:.84rem}
+  .professional-bottom-nav,.bottom-nav{height:calc(var(--mobile-nav-height) + env(safe-area-inset-bottom));padding:3px 8px env(safe-area-inset-bottom);border-radius:20px 20px 0 0}
+  .professional-bottom-nav button,.bottom-nav button{min-height:50px;height:50px;border-radius:13px}
+  .professional-bottom-nav button span,.bottom-nav button span{font-size:1rem}
+  .professional-bottom-nav button b,.bottom-nav button b{font-size:.58rem}
+  .professional-bottom-nav .quick-add-main,.bottom-nav .quick-add-main{width:48px!important;height:48px;min-height:48px;border-radius:16px;margin-top:0}
+  .professional-bottom-nav .quick-add-main span,.bottom-nav .quick-add-main span{font-size:1.55rem}
+}
+@media (min-width:421px) and (max-width:620px){
+  .professional-content,.content{padding-left:16px;padding-right:16px}
+  .dashboard-welcome.professional-hero{padding-left:22px;padding-right:22px}
+  .dashboard-hero>div{min-height:122px}
+  .dashboard-stat{min-height:120px}
+}
