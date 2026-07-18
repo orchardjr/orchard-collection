@@ -109,7 +109,7 @@ function openPhoto(url){modalRoot.innerHTML=`<div class="modal-backdrop" id="bac
 function openActivityModal(type){
   modalRoot.innerHTML=`<div class="modal-backdrop"><div class="modal"><div class="modal-header"><h2>${esc(type)}</h2><button class="icon-button" id="close-modal">×</button></div><form id="activity-form"><label>Optional note<textarea name="notes" placeholder="Add any detail you want remembered…"></textarea></label><div class="modal-actions"><button type="button" class="ghost" id="cancel-modal">Cancel</button><button class="primary">Save activity</button></div></form></div></div>`;
   document.querySelector("#close-modal").onclick=closeModal;document.querySelector("#cancel-modal").onclick=closeModal;
-  document.querySelector("#activity-form").onsubmit=async e=>{e.preventDefault();const b=e.currentTarget.querySelector(".primary"),d=new FormData(e.currentTarget);b.disabled=true;b.textContent="Saving…";const{data,error}=await supabase.from("activity_log").insert({owner_id:session.user.id,plant_accession:currentPlant.accession,activity_type:type,notes:d.get("notes")||null,occurred_at:new Date().toISOString()}).select().single();if(error){showToast(error.message);b.disabled=false;b.textContent="Save activity";return}activities.unshift(data);closeModal();showToast(`${type} logged`);detail(currentPlant)};
+  document.querySelector("#activity-form").onsubmit=async e=>{e.preventDefault();const b=e.currentTarget.querySelector(".primary"),d=new FormData(e.currentTarget);b.disabled=true;b.textContent="Saving…";const{data,error}=await supabase.from("activity_log").insert({owner_id:session.user.id,plant_id:currentPlant.id,plant_accession:currentPlant.accession,activity_type:type,notes:d.get("notes")||null,occurred_at:new Date().toISOString()}).select().single();if(error){showToast(error.message);b.disabled=false;b.textContent="Save activity";return}activities.unshift(data);closeModal();showToast(`${type} logged`);detail(currentPlant)};
 }
 photoPicker.addEventListener("change",async()=>{
   const file=photoPicker.files?.[0];if(!file||!currentPlant)return;
@@ -119,10 +119,10 @@ photoPicker.addEventListener("change",async()=>{
   const upload=await supabase.storage.from("plant-photos").upload(path,file,{cacheControl:"3600",upsert:false});
   if(upload.error){showToast(upload.error.message);photoPicker.value="";return}
   const{data:publicData}=supabase.storage.from("plant-photos").getPublicUrl(path);
-  const insert=await supabase.from("photos").insert({owner_id:session.user.id,plant_accession:currentPlant.accession,photo_url:publicData.publicUrl,storage_path:path,caption:null,taken_at:new Date().toISOString()}).select().single();
+  const insert=await supabase.from("photos").insert({owner_id:session.user.id,plant_id:currentPlant.id,plant_accession:currentPlant.accession,photo_url:publicData.publicUrl,storage_path:path,caption:null,taken_at:new Date().toISOString()}).select().single();
   if(insert.error){showToast(insert.error.message);photoPicker.value="";return}
   photos.unshift(insert.data);
-  const activity=await supabase.from("activity_log").insert({owner_id:session.user.id,plant_accession:currentPlant.accession,activity_type:"Photo",notes:"Photo added",occurred_at:new Date().toISOString()}).select().single();
+  const activity=await supabase.from("activity_log").insert({owner_id:session.user.id,plant_id:currentPlant.id,plant_accession:currentPlant.accession,activity_type:"Photo",notes:"Photo added",occurred_at:new Date().toISOString()}).select().single();
   if(!activity.error)activities.unshift(activity.data);
   photoPicker.value="";showToast("Photo added");detail(currentPlant);
 });
