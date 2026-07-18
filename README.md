@@ -1,35 +1,47 @@
-# Orchard Collection v1.1 — Premium Plant Profiles
+# Orchard Collection v2 — Daily Collection System
 
-This update keeps the existing Supabase database and authentication setup.
+## Important: run the SQL upgrade first
 
-## New in this release
+1. Open Supabase.
+2. Open **SQL Editor**.
+3. Create a new query.
+4. Paste the entire contents of `supabase_upgrade.sql`.
+5. Click **Run**.
+6. Confirm that it reports success.
 
-- Redesigned dashboard wording and polish
-- Premium individual plant profile pages
-- Care snapshot cards
-- Full plant metadata display
-- Notes section
-- Database history
-- NFC-ready plant URL
-- Copy accession and copy NFC-link controls
-- Optional support for future photo URL fields
+The SQL adds the standardized activity and photo fields, RLS policies, indexes, and the `plant-photos` Storage bucket.
 
-## Install
+## Deploy the website
 
-1. Unzip this package.
-2. Upload `index.html`, `styles.css`, `app.js`, and `config.js` to the root of the existing GitHub repository.
-3. Replace the older files.
-4. Commit the changes.
-5. Wait for Cloudflare Pages to redeploy.
+After the SQL succeeds:
 
-## Test
+1. Upload `index.html`, `styles.css`, `app.js`, and `config.js` to the root of your GitHub repository.
+2. Replace the older versions.
+3. Commit the changes.
+4. Wait for Cloudflare Pages to redeploy.
 
-Open any card. Its URL should look like:
+Do not upload `supabase_upgrade.sql` unless you want to keep it in the repository for documentation. It is not required by the website after being run.
 
-`https://orchard-collection.pages.dev/?plant=HOYA-0001`
+## New features
 
-Test on both Mac and iPhone.
+- Live attention estimates for watering and fertilizing
+- Dashboard activity metrics
+- Card and location views
+- Premium plant profiles
+- One-tap care logging
+- Optional notes on every event
+- Plant-specific timelines
+- Camera and photo-library uploads
+- Supabase Storage gallery
+- Full-screen photo viewer
+- NFC-ready direct links
+- Mobile-first controls
 
-## Next release
+## Test sequence
 
-After the profile design is confirmed, the next database-backed feature will be one-tap care logging and an activity timeline.
+1. Open a plant.
+2. Tap **Watered** and save.
+3. Confirm the timeline updates.
+4. Tap **Add photo** and choose an image.
+5. Confirm the photo appears in the gallery and on the card.
+6. Open the same page on your iPhone.
