@@ -112,19 +112,74 @@ function openActivityModal(type){
   document.querySelector("#activity-form").onsubmit=async e=>{e.preventDefault();const b=e.currentTarget.querySelector(".primary"),d=new FormData(e.currentTarget);b.disabled=true;b.textContent="Saving…";const{data,error}=await supabase.from("activity_log").insert({owner_id:session.user.id,plant_id:currentPlant.id,plant_accession:currentPlant.accession,activity_type:type,notes:d.get("notes")||null,occurred_at:new Date().toISOString()}).select().single();if(error){showToast(error.message);b.disabled=false;b.textContent="Save activity";return}activities.unshift(data);closeModal();showToast(`${type} logged`);detail(currentPlant)};
 }
 photoPicker.addEventListener("change",async()=>{
-  const file=photoPicker.files?.[0];if(!file||!currentPlant)return;
-  showToast("Uploading photo…");
-  const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,"-");
-  const path=`${session.user.id}/${currentPlant.accession}/${Date.now()}-${safe}`;
-  const upload=await supabase.storage.from("plant-photos").upload(path,file,{cacheControl:"3600",upsert:false});
-  if(upload.error){showToast(upload.error.message);photoPicker.value="";return}
-  const{data:publicData}=supabase.storage.from("plant-photos").getPublicUrl(path);
-  const insert=await supabase.from("photos").insert({owner_id:session.user.id,plant_id:currentPlant.id,plant_accession:currentPlant.accession,photo_url:publicData.publicUrl,storage_path:path,caption:null,taken_at:new Date().toISOString()}).select().single();
-  if(insert.error){showToast(insert.error.message);photoPicker.value="";return}
-  photos.unshift(insert.data);
-  const activity=await supabase.from("activity_log").insert({owner_id:session.user.id,plant_id:currentPlant.id,plant_accession:currentPlant.accession,activity_type:"Photo",notes:"Photo added",occurred_at:new Date().toISOString()}).select().single();
-  if(!activity.error)activities.unshift(activity.data);
-  photoPicker.value="";showToast("Photo added");detail(currentPlant);
+  const file=photoPicker.files?.[0];
+  if(!file||!currentPlant)return;
+
+  if(!file.size){
+    showToast("The selected image is empty. Please choose it again.");
+    photoPicker.value="";
+    return;
+  }
+
+  showToast("Preparing photo…");
+
+  try{
+    const bytes=await file.arrayBuffer();
+    if(!bytes.byteLength)throw new Error("The selected image contained no data.");
+
+    const mimeType=file.type||"image/jpeg";
+    const uploadBody=new Blob([bytes],{type:mimeType});
+    const originalName=file.name||`plant-photo-${Date.now()}.jpg`;
+    const safe=originalName.replace(/[^a-zA-Z0-9._-]/g,"-");
+    const path=`${session.user.id}/${currentPlant.accession}/${Date.now()}-${safe}`;
+
+    showToast("Uploading photo…");
+
+    const upload=await supabase.storage
+      .from("plant-photos")
+      .upload(path,uploadBody,{
+        cacheControl:"3600",
+        contentType:mimeType,
+        upsert:false
+      });
+
+    if(upload.error)throw upload.error;
+
+    const{data:publicData}=supabase.storage.from("plant-photos").getPublicUrl(path);
+
+    const insert=await supabase.from("photos").insert({
+      owner_id:session.user.id,
+      plant_id:currentPlant.id,
+      plant_accession:currentPlant.accession,
+      photo_url:publicData.publicUrl,
+      storage_path:path,
+      caption:null,
+      taken_at:new Date().toISOString()
+    }).select().single();
+
+    if(insert.error)throw insert.error;
+
+    photos.unshift(insert.data);
+
+    const activity=await supabase.from("activity_log").insert({
+      owner_id:session.user.id,
+      plant_id:currentPlant.id,
+      plant_accession:currentPlant.accession,
+      activity_type:"Photo",
+      notes:"Photo added",
+      occurred_at:new Date().toISOString()
+    }).select().single();
+
+    if(!activity.error)activities.unshift(activity.data);
+
+    showToast("Photo added");
+    detail(currentPlant);
+  }catch(error){
+    console.error("Photo upload failed:",error);
+    showToast(error?.message||"Photo upload failed.");
+  }finally{
+    photoPicker.value="";
+  }
 });
 
 async function renderAuthenticated(s){
