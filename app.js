@@ -77,7 +77,7 @@ function detail(p){
   const hidden=new Set(["id","owner_id","created_at","updated_at","name","accession","notes","care_notes","description","hero_image","photo_url","image_url","cover_photo","primary_photo","water_every_days","watering_interval","fertilize_every_days","fertilizer_interval","peduncles","condition"]);
   const rows=Object.entries(p).filter(([k,v])=>!hidden.has(k)&&v!==null&&v!==""&&!Array.isArray(v)&&typeof v!=="object").map(([k,v])=>`<div class="data-row"><span>${esc(pretty(k))}</span><span>${esc(typeof v==="boolean"?(v?"Yes":"No"):v)}</span></div>`).join("");
   app.innerHTML=`<div>${header(session.user.email)}<div class="content detail-shell"><a class="back-link" href="./">← Back to collection</a>
-    <section class="detail-hero ${img?"has-photo":""}" ${img?`style="background-image:url('${esc(img)}')"`:""}><div class="detail-title"><span class="accession">${esc(p.accession)}</span><h1>${esc(p.name||"Unnamed plant")}</h1><p>${esc(val(p,["status"],"Active"))} · ${esc(condition)}</p><div class="detail-actions"><button id="copy-nfc" class="secondary">Copy NFC link</button><button id="copy-accession" class="ghost">Copy accession</button></div></div></section>
+    <section class="detail-hero ${img?"has-photo":""}" ${img?`style="background-image:url('${esc(img)}')"`:""}><div class="detail-title"><span class="accession">${esc(p.accession)}</span><h1>${esc(p.name||"Unnamed plant")}</h1><p>${esc(val(p,["status"],"Active"))} · ${esc(condition)}</p><div class="detail-actions"><button id="edit-plant" class="primary">Edit plant</button><button id="copy-nfc" class="secondary">Copy NFC link</button><button id="copy-accession" class="ghost">Copy accession</button><button id="delete-plant" class="ghost">Delete plant</button></div></div></section>
     <section class="quick-bar">
       <button class="quick-action" data-action="Watered"><b>💧</b><span>Watered</span></button>
       <button class="quick-action" data-action="Fertilized"><b>🧪</b><span>Fertilized</span></button>
@@ -88,21 +88,26 @@ function detail(p){
     </section>
     <section class="detail-grid"><div class="stack">
       <article class="panel"><h3>Care snapshot</h3><div class="care-grid"><div class="care-card"><strong>${esc(water==="—"?"—":water+" days")}</strong><span>Watering interval</span></div><div class="care-card"><strong>${esc(fert==="—"?"—":fert+" days")}</strong><span>Fertilizing interval</span></div><div class="care-card"><strong>${esc(ped)}</strong><span>Peduncles</span></div><div class="care-card"><strong>${esc(condition)}</strong><span>Current condition</span></div></div></article>
-      <article class="panel"><h3>Growth and care timeline</h3><div class="timeline">${events.length?events.map(e=>`<div class="event"><div class="event-icon">${iconFor(e.activity_type)}</div><div class="event-body"><strong>${esc(e.activity_type||"Activity")}</strong><time>${esc(fmtDate(e.occurred_at||e.created_at))}</time>${e.notes?`<p>${esc(e.notes)}</p>`:""}</div></div>`).join(""):'<p class="subtext">No events yet. Use the quick-action buttons above to begin this plant’s story.</p>'}</div></article>
+      <article class="panel"><h3>Growth and care timeline</h3><div class="timeline">${events.length?events.map(e=>`<div class="event"><div class="event-icon">${iconFor(e.activity_type)}</div><div class="event-body"><strong>${esc(e.activity_type||"Activity")}</strong><time>${esc(fmtDate(e.occurred_at||e.created_at))}</time>${e.notes?`<p>${esc(e.notes)}</p>`:""}<div class="event-controls"><button class="mini-button" data-edit-event="${esc(e.id)}">Edit</button><button class="mini-button danger-button" data-delete-event="${esc(e.id)}">Delete</button></div></div></div>`).join(""):'<p class="subtext">No events yet. Use the quick-action buttons above to begin this plant’s story.</p>'}</div></article>
       <article class="panel"><h3>Botanical record</h3><div class="data-list">${rows||'<p class="subtext">No additional record fields are populated yet.</p>'}</div></article>
       <article class="panel"><h3>Notes</h3><div class="note-box">${esc(notes)}</div></article>
     </div><div class="stack">
-      <article class="panel"><h3>Photo gallery</h3>${pics.length?`<div class="gallery">${pics.map(x=>`<img src="${esc(x.photo_url)}" alt="${esc(x.caption||p.name||"Plant photo")}" data-full="${esc(x.photo_url)}">`).join("")}</div>`:'<p class="subtext">No photos yet. Tap “Add photo” to take or upload the first image.</p>'}</article>
+      <article class="panel"><h3>Photo gallery</h3>${pics.length?`<div class="gallery">${pics.map(x=>`<div class="photo-tile"><img src="${esc(x.photo_url)}" alt="${esc(x.caption||p.name||"Plant photo")}" data-full="${esc(x.photo_url)}"><button class="photo-delete" data-delete-photo="${esc(x.id)}" aria-label="Delete photo">×</button></div>`).join("")}</div>`:'<p class="subtext">No photos yet. Tap “Add photo” to take or upload the first image.</p>'}</article>
       <article class="panel"><h3>Database history</h3><div class="data-list"><div class="data-row"><span>Created</span><span>${esc(fmtDate(p.created_at))}</span></div><div class="data-row"><span>Last updated</span><span>${esc(fmtDate(p.updated_at))}</span></div><div class="data-row"><span>Owner protected</span><span>Yes</span></div></div></article>
       <article class="panel"><h3>NFC plant link</h3><div class="nfc-url">${esc(nfc)}</div></article>
     </div></section>
   </div></div>`;
   bindHeader();
+  document.querySelector("#edit-plant").onclick=()=>openPlantEditModal(p);
+  document.querySelector("#delete-plant").onclick=()=>confirmDeletePlant(p);
   document.querySelector("#copy-nfc").onclick=()=>copyText(nfc);
   document.querySelector("#copy-accession").onclick=()=>copyText(p.accession);
   document.querySelectorAll("[data-action]").forEach(b=>b.onclick=()=>openActivityModal(b.dataset.action));
   document.querySelector("#add-photo").onclick=()=>photoPicker.click();
   document.querySelectorAll("[data-full]").forEach(img=>img.onclick=()=>openPhoto(img.dataset.full));
+  document.querySelectorAll("[data-edit-event]").forEach(b=>b.onclick=()=>openEventEditModal(b.dataset.editEvent));
+  document.querySelectorAll("[data-delete-event]").forEach(b=>b.onclick=()=>confirmDeleteEvent(b.dataset.deleteEvent));
+  document.querySelectorAll("[data-delete-photo]").forEach(b=>b.onclick=e=>{e.stopPropagation();confirmDeletePhoto(b.dataset.deletePhoto)});
 }
 async function copyText(t){await navigator.clipboard.writeText(t);showToast("Copied")}
 function openPhoto(url){modalRoot.innerHTML=`<div class="modal-backdrop" id="backdrop"><div class="modal photo-modal"><img src="${esc(url)}" alt="Plant photo"></div></div>`;document.querySelector("#backdrop").onclick=e=>{if(e.target.id==="backdrop")closeModal()}}
@@ -111,6 +116,143 @@ function openActivityModal(type){
   document.querySelector("#close-modal").onclick=closeModal;document.querySelector("#cancel-modal").onclick=closeModal;
   document.querySelector("#activity-form").onsubmit=async e=>{e.preventDefault();const b=e.currentTarget.querySelector(".primary"),d=new FormData(e.currentTarget);b.disabled=true;b.textContent="Saving…";const{data,error}=await supabase.from("activity_log").insert({owner_id:session.user.id,plant_id:currentPlant.id,plant_accession:currentPlant.accession,activity_type:type,notes:d.get("notes")||null,occurred_at:new Date().toISOString()}).select().single();if(error){showToast(error.message);b.disabled=false;b.textContent="Save activity";return}activities.unshift(data);closeModal();showToast(`${type} logged`);detail(currentPlant)};
 }
+
+function openPlantEditModal(p){
+  modalRoot.innerHTML=`<div class="modal-backdrop"><div class="modal"><div class="modal-header"><h2>Edit plant</h2><button class="icon-button" id="close-modal">×</button></div>
+    <form id="plant-edit-form" class="form-grid">
+      <label>Plant name<input name="name" value="${esc(p.name||"")}" required></label>
+      <label>Status<input name="status" value="${esc(p.status||"Active")}"></label>
+      <label>Condition<input name="condition" value="${esc(p.condition||"")}"></label>
+      <label>Location<input name="location" value="${esc(p.location||"")}"></label>
+      <label>Support<input name="support" value="${esc(p.support||"")}"></label>
+      <label>Medium<input name="medium" value="${esc(p.medium||"")}"></label>
+      <label>Water every (days)<input name="water_every_days" type="number" min="0" value="${esc(p.water_every_days??"")}"></label>
+      <label>Fertilize every (days)<input name="fertilize_every_days" type="number" min="0" value="${esc(p.fertilize_every_days??"")}"></label>
+      <label>Fertilizer<input name="fertilizer" value="${esc(p.fertilizer||"")}"></label>
+      <label>Peduncles<input name="peduncles" type="number" min="0" value="${esc(p.peduncles??0)}"></label>
+      <label>Notes<textarea name="notes">${esc(p.notes||p.care_notes||p.description||"")}</textarea></label>
+      <div class="modal-actions"><button type="button" class="ghost" id="cancel-modal">Cancel</button><button class="primary">Save changes</button></div>
+    </form></div></div>`;
+  document.querySelector("#close-modal").onclick=closeModal;
+  document.querySelector("#cancel-modal").onclick=closeModal;
+  document.querySelector("#plant-edit-form").onsubmit=async e=>{
+    e.preventDefault();
+    const form=e.currentTarget,button=form.querySelector(".primary"),d=new FormData(form);
+    button.disabled=true;button.textContent="Saving…";
+    const payload={
+      name:d.get("name"),
+      status:d.get("status")||null,
+      condition:d.get("condition")||null,
+      location:d.get("location")||null,
+      support:d.get("support")||null,
+      medium:d.get("medium")||null,
+      water_every_days:d.get("water_every_days")===""?null:Number(d.get("water_every_days")),
+      fertilize_every_days:d.get("fertilize_every_days")===""?null:Number(d.get("fertilize_every_days")),
+      fertilizer:d.get("fertilizer")||null,
+      peduncles:d.get("peduncles")===""?0:Number(d.get("peduncles")),
+      notes:d.get("notes")||null,
+      updated_at:new Date().toISOString()
+    };
+    const {data,error}=await supabase.from("plants").update(payload).eq("id",p.id).select().single();
+    if(error){showToast(error.message);button.disabled=false;button.textContent="Save changes";return}
+    const index=plants.findIndex(x=>x.id===p.id);
+    if(index>=0)plants[index]=data;
+    currentPlant=data;
+    closeModal();showToast("Plant updated");detail(data);
+  };
+}
+
+function openEventEditModal(eventId){
+  const event=activities.find(x=>String(x.id)===String(eventId));
+  if(!event)return;
+  const when=(event.occurred_at||event.created_at||new Date().toISOString()).slice(0,16);
+  modalRoot.innerHTML=`<div class="modal-backdrop"><div class="modal"><div class="modal-header"><h2>Edit timeline entry</h2><button class="icon-button" id="close-modal">×</button></div>
+    <form id="event-edit-form" class="form-grid">
+      <label>Activity type<input name="activity_type" value="${esc(event.activity_type||"")}"></label>
+      <label>Date and time<input name="occurred_at" type="datetime-local" value="${esc(when)}"></label>
+      <label>Notes<textarea name="notes">${esc(event.notes||"")}</textarea></label>
+      <div class="modal-actions"><button type="button" class="ghost" id="cancel-modal">Cancel</button><button class="primary">Save changes</button></div>
+    </form></div></div>`;
+  document.querySelector("#close-modal").onclick=closeModal;
+  document.querySelector("#cancel-modal").onclick=closeModal;
+  document.querySelector("#event-edit-form").onsubmit=async e=>{
+    e.preventDefault();
+    const form=e.currentTarget,button=form.querySelector(".primary"),d=new FormData(form);
+    button.disabled=true;button.textContent="Saving…";
+    const local=d.get("occurred_at");
+    const payload={activity_type:d.get("activity_type")||"Activity",notes:d.get("notes")||null,occurred_at:local?new Date(local).toISOString():event.occurred_at};
+    const {data,error}=await supabase.from("activity_log").update(payload).eq("id",event.id).select().single();
+    if(error){showToast(error.message);button.disabled=false;button.textContent="Save changes";return}
+    const index=activities.findIndex(x=>x.id===event.id);
+    if(index>=0)activities[index]=data;
+    closeModal();showToast("Timeline entry updated");detail(currentPlant);
+  };
+}
+
+function confirmationModal(title,message,confirmText,onConfirm){
+  modalRoot.innerHTML=`<div class="modal-backdrop"><div class="modal"><div class="modal-header"><h2>${esc(title)}</h2><button class="icon-button" id="close-modal">×</button></div><p class="subtext">${esc(message)}</p><div class="modal-actions"><button class="ghost" id="cancel-modal">Cancel</button><button class="primary danger-confirm" id="confirm-delete">${esc(confirmText)}</button></div></div></div>`;
+  document.querySelector("#close-modal").onclick=closeModal;
+  document.querySelector("#cancel-modal").onclick=closeModal;
+  document.querySelector("#confirm-delete").onclick=onConfirm;
+}
+
+function confirmDeleteEvent(eventId){
+  const event=activities.find(x=>String(x.id)===String(eventId));
+  if(!event)return;
+  confirmationModal("Delete timeline entry","This removes the event permanently from this plant’s history.","Delete entry",async()=>{
+    const b=document.querySelector("#confirm-delete");b.disabled=true;b.textContent="Deleting…";
+    const {error}=await supabase.from("activity_log").delete().eq("id",event.id);
+    if(error){showToast(error.message);b.disabled=false;b.textContent="Delete entry";return}
+    activities=activities.filter(x=>x.id!==event.id);
+    closeModal();showToast("Timeline entry deleted");detail(currentPlant);
+  });
+}
+
+function confirmDeletePhoto(photoId){
+  const photo=photos.find(x=>String(x.id)===String(photoId));
+  if(!photo)return;
+  confirmationModal("Delete photo","This removes the image from the gallery and permanently deletes the file from storage.","Delete photo",async()=>{
+    const b=document.querySelector("#confirm-delete");b.disabled=true;b.textContent="Deleting…";
+    if(photo.storage_path){
+      const storageResult=await supabase.storage.from("plant-photos").remove([photo.storage_path]);
+      if(storageResult.error){showToast(storageResult.error.message);b.disabled=false;b.textContent="Delete photo";return}
+    }
+    const {error}=await supabase.from("photos").delete().eq("id",photo.id);
+    if(error){showToast(error.message);b.disabled=false;b.textContent="Delete photo";return}
+    photos=photos.filter(x=>x.id!==photo.id);
+    closeModal();showToast("Photo deleted");detail(currentPlant);
+  });
+}
+
+function confirmDeletePlant(p){
+  confirmationModal("Delete plant",`Permanently delete ${p.accession} and all of its photos and timeline entries? This cannot be undone.`,"Delete plant",async()=>{
+    const b=document.querySelector("#confirm-delete");b.disabled=true;b.textContent="Deleting…";
+
+    const relatedPhotos=plantPhotos(p.accession);
+    const paths=relatedPhotos.map(x=>x.storage_path).filter(Boolean);
+    if(paths.length){
+      const storageResult=await supabase.storage.from("plant-photos").remove(paths);
+      if(storageResult.error){showToast(storageResult.error.message);b.disabled=false;b.textContent="Delete plant";return}
+    }
+
+    const activityDelete=await supabase.from("activity_log").delete().eq("plant_id",p.id);
+    if(activityDelete.error){showToast(activityDelete.error.message);b.disabled=false;b.textContent="Delete plant";return}
+
+    const photoDelete=await supabase.from("photos").delete().eq("plant_id",p.id);
+    if(photoDelete.error){showToast(photoDelete.error.message);b.disabled=false;b.textContent="Delete plant";return}
+
+    const plantDelete=await supabase.from("plants").delete().eq("id",p.id);
+    if(plantDelete.error){showToast(plantDelete.error.message);b.disabled=false;b.textContent="Delete plant";return}
+
+    plants=plants.filter(x=>x.id!==p.id);
+    activities=activities.filter(x=>x.plant_id!==p.id&&x.plant_accession!==p.accession);
+    photos=photos.filter(x=>x.plant_id!==p.id&&x.plant_accession!==p.accession);
+    closeModal();showToast("Plant deleted");
+    history.replaceState({}, "", location.pathname);
+    dashboard();
+  });
+}
+
 photoPicker.addEventListener("change",async()=>{
   const file=photoPicker.files?.[0];
   if(!file||!currentPlant)return;
