@@ -33,6 +33,17 @@ function plantActivities(accession){return activities.filter(x=>x.plant_accessio
 function plantPhotos(accession){return photos.filter(x=>x.plant_accession===accession).sort((a,b)=>new Date(b.taken_at||b.created_at)-new Date(a.taken_at||a.created_at))}
 function lastActivity(accession,type){return plantActivities(accession).find(x=>String(x.activity_type).toLowerCase()===type)}
 function duePlants(type,intervalField){return plants.filter(p=>{const n=Number(p[intervalField]);if(!n)return false;const last=lastActivity(p.accession,type);if(!last)return true;return daysSince(last.occurred_at||last.created_at)>=n})}
+function dueInfo(p,type,intervalField){
+  const interval=Number(p[intervalField]); if(!interval)return null;
+  const last=lastActivity(p.accession,type);
+  if(!last)return {daysOverdue:0,label:"No previous log"};
+  const elapsed=daysSince(last.occurred_at||last.created_at);
+  const overdue=elapsed-interval;
+  return {daysOverdue:overdue,label:overdue>0?`${overdue} day${overdue===1?"":"s"} overdue`:overdue===0?"Due today":`Due in ${Math.abs(overdue)} day${Math.abs(overdue)===1?"":"s"}`};
+}
+function latestPhotoAge(p){const photo=plantPhotos(p.accession)[0];return photo?daysSince(photo.taken_at||photo.created_at):null}
+function stalePhotoPlants(){return plants.filter(p=>{const age=latestPhotoAge(p);return age===null||age>=60})}
+function recentActivityFor(type,days=30){return activities.filter(a=>String(a.activity_type).toLowerCase()===type.toLowerCase()&&daysSince(a.occurred_at||a.created_at)<=days)}
 function greeting(){const h=new Date().getHours();return h<12?"Good morning":h<18?"Good afternoon":"Good evening"}
 function money(v){const n=Number(v);return Number.isFinite(n)?new Intl.NumberFormat(undefined,{style:"currency",currency:"CAD",maximumFractionDigits:0}).format(n):"—"}
 
@@ -113,20 +124,21 @@ function renderCurrent(){
 }
 
 function renderDashboard(){
-  const waterDue=duePlants("watered","water_every_days");
-  const feedDue=duePlants("fertilized","fertilize_every_days");
-  const recent=activities.filter(a=>daysSince(a.occurred_at||a.created_at)<=7);
-  const blooming=activities.filter(a=>String(a.activity_type).toLowerCase()==="bloom"&&daysSince(a.occurred_at||a.created_at)<=30);
-  const newLeaves=activities.filter(a=>String(a.activity_type).toLowerCase()==="new leaf"&&daysSince(a.occurred_at||a.created_at)<=30);
+  const waterDue=duePlants("watered","water_every_days").sort((a,b)=>(dueInfo(b,"watered","water_every_days")?.daysOverdue||0)-(dueInfo(a,"watered","water_every_days")?.daysOverdue||0));
+  const feedDue=duePlants("fertilized","fertilize_every_days").sort((a,b)=>(dueInfo(b,"fertilized","fertilize_every_days")?.daysOverdue||0)-(dueInfo(a,"fertilized","fertilize_every_days")?.daysOverdue||0));
+  const blooming=recentActivityFor("bloom",30);
+  const newLeaves=recentActivityFor("new leaf",30);
+  const repots=recentActivityFor("repotted",30);
   const totalValue=plants.reduce((s,p)=>s+(Number(p.current_value)||Number(p.purchase_price)||0),0);
   const favorites=plants.filter(p=>p.favorite);
-  const recentPlants=[...new Set(recent.map(a=>a.plant_accession))].map(a=>plants.find(p=>p.accession===a)).filter(Boolean).slice(0,5);
+  const stalePhotos=stalePhotoPlants();
+  const recentEvents=activities.slice(0,8);
 
   app.innerHTML=shell(`
     <section class="dashboard-welcome">
       <p class="eyebrow">${esc(greeting())}</p>
-      <h1>Welcome back.</h1>
-      <p>Your collection is synced and ready.</p>
+      <h1>Your collection today.</h1>
+      <p>${waterDue.length||feedDue.length?`${waterDue.length+feedDue.length} care task${waterDue.length+feedDue.length===1?"":"s"} need attention.`:"Everything is caught up."}</p>
     </section>
 
     <section class="dashboard-hero">
@@ -135,19 +147,41 @@ function renderDashboard(){
     </section>
 
     <section class="dashboard-stats">
-      <button class="dashboard-stat" data-jump="water"><span>💧</span><strong>${waterDue.length}</strong><small>Need water</small></button>
-      <button class="dashboard-stat" data-jump="feed"><span>🧪</span><strong>${feedDue.length}</strong><small>Need fertilizer</small></button>
+      <button class="dashboard-stat" id="open-water-queue"><span>💧</span><strong>${waterDue.length}</strong><small>Need water</small></button>
+      <button class="dashboard-stat" id="open-feed-queue"><span>🧪</span><strong>${feedDue.length}</strong><small>Need fertilizer</small></button>
       <button class="dashboard-stat"><span>🌸</span><strong>${blooming.length}</strong><small>Blooms this month</small></button>
       <button class="dashboard-stat"><span>🌱</span><strong>${newLeaves.length}</strong><small>New leaves</small></button>
     </section>
 
     <section class="dashboard-section">
-      <div class="section-heading"><div><p class="eyebrow">Today</p><h2>Needs attention</h2></div><button class="ghost compact" id="view-all-plants">View collection</button></div>
-      <div class="attention-list">
-        ${waterDue.slice(0,4).map(p=>attentionRow(p,"Water due","💧")).join("")}
-        ${feedDue.slice(0,4).map(p=>attentionRow(p,"Fertilizer due","🧪")).join("")}
-        ${!waterDue.length&&!feedDue.length?'<div class="empty-state">Everything is caught up today.</div>':""}
+      <div class="section-heading"><div><p class="eyebrow">Care queue</p><h2>Needs attention</h2></div><button class="ghost compact" id="batch-care">Batch log</button></div>
+      <div class="smart-care-grid">
+        <article class="smart-care-card">
+          <div class="smart-care-head"><span>💧</span><div><strong>Watering</strong><small>${waterDue.length} due</small></div></div>
+          <div class="smart-care-list">${waterDue.slice(0,5).map(p=>smartCareRow(p,"watered","water_every_days")).join("")||'<div class="empty-state compact-empty">Caught up</div>'}</div>
+          ${waterDue.length?'<button class="secondary full-width" id="view-water-queue">View watering queue</button>':""}
+        </article>
+        <article class="smart-care-card">
+          <div class="smart-care-head"><span>🧪</span><div><strong>Fertilizing</strong><small>${feedDue.length} due</small></div></div>
+          <div class="smart-care-list">${feedDue.slice(0,5).map(p=>smartCareRow(p,"fertilized","fertilize_every_days")).join("")||'<div class="empty-state compact-empty">Caught up</div>'}</div>
+          ${feedDue.length?'<button class="secondary full-width" id="view-feed-queue">View fertilizer queue</button>':""}
+        </article>
       </div>
+    </section>
+
+    <section class="dashboard-section">
+      <div class="section-heading"><div><p class="eyebrow">This month</p><h2>Growth summary</h2></div></div>
+      <div class="growth-summary">
+        <article><span>🌸</span><strong>${blooming.length}</strong><small>Blooms logged</small></article>
+        <article><span>🌱</span><strong>${newLeaves.length}</strong><small>New leaves</small></article>
+        <article><span>🪴</span><strong>${repots.length}</strong><small>Repots</small></article>
+        <article><span>📷</span><strong>${photos.filter(p=>daysSince(p.taken_at||p.created_at)<=30).length}</strong><small>Photos added</small></article>
+      </div>
+    </section>
+
+    <section class="dashboard-section">
+      <div class="section-heading"><div><p class="eyebrow">Photo freshness</p><h2>Needs a new photo</h2></div><button class="ghost compact" id="view-photo-reminders">View all</button></div>
+      <div class="mini-card-row">${stalePhotos.length?stalePhotos.slice(0,6).map(photoReminderCard).join(""):'<div class="empty-state">Every plant has a recent photo.</div>'}</div>
     </section>
 
     <section class="dashboard-section">
@@ -156,22 +190,79 @@ function renderDashboard(){
     </section>
 
     <section class="dashboard-section">
-      <div class="section-heading"><div><p class="eyebrow">Recently active</p><h2>Collection activity</h2></div></div>
-      <div class="mini-card-row">${recentPlants.length?recentPlants.map(miniCard).join(""):'<div class="empty-state">Log care or add photos to populate recent activity.</div>'}</div>
+      <div class="section-heading"><div><p class="eyebrow">Latest</p><h2>Recent activity</h2></div></div>
+      <div class="recent-activity-list">${recentEvents.length?recentEvents.map(recentActivityRow).join(""):'<div class="empty-state">No recent activity yet.</div>'}</div>
     </section>
   `,"dashboard");
-  bindShell();
-  document.querySelector("#view-all-plants").onclick=()=>navigate("collection");
-  document.querySelector("#view-favorites").onclick=()=>navigate("favorites");
-  document.querySelectorAll("[data-open-plant]").forEach(b=>b.onclick=()=>openPlant(b.dataset.openPlant));
-}
 
+  bindShell();
+  document.querySelector("#open-water-queue")?.addEventListener("click",()=>openCareQueue("Watered","water_every_days"));
+  document.querySelector("#open-feed-queue")?.addEventListener("click",()=>openCareQueue("Fertilized","fertilize_every_days"));
+  document.querySelector("#view-water-queue")?.addEventListener("click",()=>openCareQueue("Watered","water_every_days"));
+  document.querySelector("#view-feed-queue")?.addEventListener("click",()=>openCareQueue("Fertilized","fertilize_every_days"));
+  document.querySelector("#batch-care")?.addEventListener("click",openBatchCareMenu);
+  document.querySelector("#view-photo-reminders")?.addEventListener("click",openPhotoReminderQueue);
+  document.querySelector("#view-favorites")?.addEventListener("click",()=>navigate("favorites"));
+  document.querySelectorAll("[data-open-plant]").forEach(b=>b.onclick=()=>openPlant(b.dataset.openPlant));
+  document.querySelectorAll("[data-quick-care]").forEach(b=>b.onclick=()=>quickLogSingle(b.dataset.quickCare,b.dataset.accession));
+}
+function smartCareRow(p,type,intervalField){
+  const info=dueInfo(p,type,intervalField);
+  return `<div class="smart-care-row"><button data-open-plant="${esc(p.accession)}"><strong>${esc(p.name)}</strong><small>${esc(info?.label||"Due")}</small></button><button class="care-check" data-quick-care="${type}" data-accession="${esc(p.accession)}">✓</button></div>`;
+}
+function photoReminderCard(p){
+  const age=latestPhotoAge(p),img=imageURL(p);
+  return `<button class="mini-plant-card ${img?"has-photo":""}" data-open-plant="${esc(p.accession)}" ${img?`style="background-image:url('${esc(img)}')"`:""}><span>${esc(p.accession)}</span><strong>${esc(p.name)}</strong><small>${age===null?"No photos yet":`${age} days since photo`}</small></button>`;
+}
+function recentActivityRow(a){
+  const p=plants.find(x=>x.accession===a.plant_accession);
+  return `<button class="recent-activity-row" data-open-plant="${esc(a.plant_accession)}"><span class="attention-icon">${iconFor(a.activity_type)}</span><span><strong>${esc(p?.name||a.plant_accession||"Plant")}</strong><small>${esc(a.activity_type||"Activity")} · ${esc(fmtDate(a.occurred_at||a.created_at))}</small></span><span>›</span></button>`;
+}
 function attentionRow(p,label,icon){
   return `<button class="attention-row" data-open-plant="${esc(p.accession)}"><span class="attention-icon">${icon}</span><span><strong>${esc(p.name)}</strong><small>${esc(p.accession)} · ${esc(label)}</small></span><span>›</span></button>`;
 }
 function miniCard(p){
   const img=imageURL(p);
   return `<button class="mini-plant-card ${img?"has-photo":""}" data-open-plant="${esc(p.accession)}" ${img?`style="background-image:url('${esc(img)}')"`:""}><span>${esc(p.accession)}</span><strong>${esc(p.name)}</strong></button>`;
+}
+
+
+async function quickLogSingle(type,accession){
+  const p=plants.find(x=>x.accession===accession); if(!p)return;
+  const label=type.charAt(0).toUpperCase()+type.slice(1);
+  const {data,error}=await supabase.from("activity_log").insert({owner_id:session.user.id,plant_id:p.id,plant_accession:p.accession,activity_type:label,notes:null,occurred_at:new Date().toISOString()}).select().single();
+  if(error){showToast(error.message);return}
+  activities.unshift(data);showToast(`${p.name} logged`);renderDashboard();
+}
+function openCareQueue(type,intervalField){
+  const normalized=type.toLowerCase();
+  const list=duePlants(normalized,intervalField).sort((a,b)=>(dueInfo(b,normalized,intervalField)?.daysOverdue||0)-(dueInfo(a,normalized,intervalField)?.daysOverdue||0));
+  modalRoot.innerHTML=`<div class="modal-backdrop"><div class="modal care-queue-modal"><div class="modal-header"><div><p class="eyebrow">Care queue</p><h2>${esc(type)}</h2></div><button class="icon-button" id="close-modal">×</button></div><div class="queue-select-all"><label><input type="checkbox" id="select-all-care"> Select all</label><span>${list.length} due</span></div><div class="care-queue-list">${list.map(p=>{const info=dueInfo(p,normalized,intervalField);return `<label class="care-queue-row"><input type="checkbox" value="${esc(p.id)}"><span><strong>${esc(p.name)}</strong><small>${esc(p.accession)} · ${esc(info?.label||"Due")}</small></span></label>`}).join("")||'<div class="empty-state">Nothing due.</div>'}</div>${list.length?'<div class="modal-actions"><button class="ghost" id="cancel-modal">Cancel</button><button class="primary" id="log-selected-care">Log selected</button></div>':""}</div></div>`;
+  document.querySelector("#close-modal").onclick=closeModal;
+  document.querySelector("#cancel-modal")?.addEventListener("click",closeModal);
+  document.querySelector("#select-all-care")?.addEventListener("change",e=>document.querySelectorAll(".care-queue-row input").forEach(cb=>cb.checked=e.target.checked));
+  document.querySelector("#log-selected-care")?.addEventListener("click",async()=>{
+    const ids=[...document.querySelectorAll(".care-queue-row input:checked")].map(x=>x.value);
+    if(!ids.length){showToast("Select at least one plant");return}
+    const chosen=plants.filter(p=>ids.includes(String(p.id)));
+    const rows=chosen.map(p=>({owner_id:session.user.id,plant_id:p.id,plant_accession:p.accession,activity_type:type,notes:"Batch logged",occurred_at:new Date().toISOString()}));
+    const button=document.querySelector("#log-selected-care");button.disabled=true;button.textContent="Saving…";
+    const {data,error}=await supabase.from("activity_log").insert(rows).select();
+    if(error){showToast(error.message);button.disabled=false;button.textContent="Log selected";return}
+    activities.unshift(...data);closeModal();showToast(`${chosen.length} plants logged`);renderDashboard();
+  });
+}
+function openBatchCareMenu(){
+  modalRoot.innerHTML=`<div class="modal-backdrop"><div class="modal"><div class="modal-header"><div><p class="eyebrow">Batch care</p><h2>Choose an action</h2></div><button class="icon-button" id="close-modal">×</button></div><div class="quick-add-grid"><button id="batch-water">💧<span>Water plants</span></button><button id="batch-feed">🧪<span>Fertilize plants</span></button></div></div></div>`;
+  document.querySelector("#close-modal").onclick=closeModal;
+  document.querySelector("#batch-water").onclick=()=>openCareQueue("Watered","water_every_days");
+  document.querySelector("#batch-feed").onclick=()=>openCareQueue("Fertilized","fertilize_every_days");
+}
+function openPhotoReminderQueue(){
+  const list=stalePhotoPlants().sort((a,b)=>(latestPhotoAge(b)??9999)-(latestPhotoAge(a)??9999));
+  modalRoot.innerHTML=`<div class="modal-backdrop"><div class="modal care-queue-modal"><div class="modal-header"><div><p class="eyebrow">Photo reminders</p><h2>Needs a new photo</h2></div><button class="icon-button" id="close-modal">×</button></div><div class="picker-list">${list.map(p=>`<button data-pick-photo="${esc(p.accession)}"><strong>${esc(p.name)}</strong><span>${latestPhotoAge(p)===null?"No photo":`${latestPhotoAge(p)} days ago`}</span></button>`).join("")}</div></div></div>`;
+  document.querySelector("#close-modal").onclick=closeModal;
+  document.querySelectorAll("[data-pick-photo]").forEach(b=>b.onclick=()=>{closeModal();openPlant(b.dataset.pickPhoto);setTimeout(()=>photoPicker.click(),250)});
 }
 
 function renderCollectionScreen(){
