@@ -15,7 +15,7 @@
   <link rel="shortcut icon" href="/favicon.ico?v=4.0.5" />
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="stylesheet" href="./brand.css" />
-  <link rel="stylesheet" href="./styles.css?v=4.2.2" />
+  <link rel="stylesheet" href="./styles-v423.css" />
 </head>
 <body>
   <main id="app">
@@ -28,10 +28,32 @@
   <input id="photo-picker" type="file" accept="image/*" hidden />
   <div id="modal-root"></div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <div id="build-marker" aria-label="App version">v4.2.3</div>
 
-  <script type="module" src="./app.js?v=4.2.2"></script>
+  <script type="module" src="./app-v423.js"></script>
   <script>
-    if ("serviceWorker" in navigator) window.addEventListener("load",()=>navigator.serviceWorker.register("/service-worker.js"));
+    window.ORCHARD_BUILD = "4.2.3";
+    (async () => {
+      try {
+        if ("serviceWorker" in navigator) {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(registrations.map(registration => registration.unregister()));
+        }
+        if ("caches" in window) {
+          const names = await caches.keys();
+          await Promise.all(names.map(name => caches.delete(name)));
+        }
+        const resetKey = "orchard-v423-cache-reset";
+        if (!sessionStorage.getItem(resetKey)) {
+          sessionStorage.setItem(resetKey, "done");
+          const url = new URL(location.href);
+          url.searchParams.set("build", "423");
+          location.replace(url.toString());
+        }
+      } catch (error) {
+        console.warn("Orchard cache reset could not complete", error);
+      }
+    })();
   </script>
 </body>
 </html>
